@@ -1,0 +1,11 @@
+{
+    "compilerOptions": { 
+        "outDir": "dist",
+        "lib": ["ESNext"],
+        "types": ["lua-types/5.4"]
+    },
+    "tstl": {
+        "luaTarget": "5.3",
+        "tstlVerbose": true,
+    }
+}
