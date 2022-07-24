@@ -44,7 +44,10 @@ class Class:
 dump: Dict[str, Dict] = json.load(open("il2cpp_dump.json", encoding="utf-8"))
 print("json loaded")
 
-filter = sys.argv[1]
+filter = ""
+if len(sys.argv) > 1:
+    filter = sys.argv[1]
+
 parsed_types = {}
 
 converted_types = {
