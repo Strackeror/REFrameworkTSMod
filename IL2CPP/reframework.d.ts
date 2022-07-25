@@ -70,12 +70,16 @@ declare namespace sdk {
   function find_type_definition<T extends keyof TypeMap>(name: T): RETypeDefinition<TypeMap[T]>
   function find_type_definition(name: string): RETypeDefinition
 
-  function to_ptr<T>(obj: T): Ptr<T>
-
   function to_managed_object<T extends System.Object.T>(ptr: Ptr<T>): REManagedObject<T>
   function to_managed_object<T>(obj: T): T
   
   function to_ptr<T>(obj: T): Ptr<T>
+
+  function to_float(ptr: Ptr): number
+  function to_int64(ptr: Ptr): number
+  function to_double(ptr: Ptr): number
+
+  function float_to_ptr(number: number): Ptr<number>
 
   function hook<
     T,
@@ -91,4 +95,21 @@ declare namespace sdk {
     CALL_ORIGINAL,
     SKIP_ORIGINAL
   }
+}
+
+/** @noSelf */
+declare namespace json {
+  function load_file(filepath: string): any
+  function dump_file(filepath: string, value: any, indent?: number): boolean
+
+  function load_string(json_str: string): any
+  function dump_string(value: any, indent?: number): string
+}
+
+/** @noSelf */
+declare namespace log {
+  function debug(text: string)
+  function info(text: string)
+  function warn(text: string)
+  function error(text: string)
 }
