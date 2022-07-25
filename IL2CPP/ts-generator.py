@@ -209,6 +209,8 @@ def makeNamespace(cls: Class, name_hierarchy: List[str]):
 def parseEnum(cls: Class, entry):
     makeNamespace(cls, entry["name_hierarchy"] or [])
 
+    cls.parent = parseClass("System.Enum", True)
+
     if "fields" in entry:
         for _name, _field in entry["fields"].items():
             default = ""
@@ -372,10 +374,16 @@ def write_method(file: IO, class_def: Class, method: Method, name: str):
     else:
         file.write("  " + name)
 
-    file.write(f": (this: {class_def.typescript_type()}")
+    # typescript-to-lua adds an implicit self by default
+    
+    file.write("(")
+    i = 0
     for p in method.params:
-        file.write(f", {p.name}: {p.type.typescript_type()}")
-    file.write(f") => {method.ret.typescript_type()};\n")
+        if i > 0:
+            file.write(",")
+        i += 1
+        file.write(f"{p.name}: {p.type.typescript_type()}")
+    file.write(f"): {method.ret.typescript_type()};\n")
 
 
 def write_class(file: IO, class_def: Class):
@@ -398,9 +406,9 @@ def write_class(file: IO, class_def: Class):
         else:
             file.write(f'  "{f.name}": {f.type.typescript_type()},\n')
 
-    method_name_map = defaultdict(list)
-    method_full_map = defaultdict(list)
-    method_full_ret_map = defaultdict(list)
+    method_name_map: Dict[str, List[Method]] = defaultdict(list)
+    method_full_map: Dict[str, List[Method]] = defaultdict(list)
+    method_full_ret_map: Dict[str, List[Method]] = defaultdict(list)
 
     for method in class_def.methods:
         method_name_map[method.name].append(method)
@@ -418,12 +426,28 @@ def write_class(file: IO, class_def: Class):
             write_method(file, class_def, method, method.full_name_ret +
                          str(method_full_ret_map[method.full_name_ret].index(method)))
 
+    # indexing function
+    if len(method_name_map["set_Item"]) == 1 and len(method_name_map["get_Item"]) == 1:
+        get = method_name_map["get_Item"][0]
+        if len(get.params) == 1:
+            input = get.params[0]
+            output = get.ret
+            file.write(f'  [{make_valid_symbol(input.name)}: {input.type.typescript_type()}]: {output.typescript_type()},\n')
+
+
     file.write("}\n")
 
     file.write(
         f'type {class_def.local_name}{template_full} = __{class_def.local_name}{template} ')
     if class_def.parent:
-        file.write(f"& {class_def.parent.typescript_type()}")
+        # file.write(f"& {class_def.parent.typescript_type()}")
+        
+        # Typescript does not support type overriding, so we have to Omit the parent's type common keys
+        # Keeping the code for basic inheritance in case we need it
+        
+        # Generating a defined Omit<> with a tuple of keys is possible, would it speed up things ?
+        file.write(
+            f"& Omit<{class_def.parent.typescript_type()}, keyof __{class_def.local_name}{template}>")
     file.write(";\n")
 
 

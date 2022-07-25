@@ -5,7 +5,7 @@ declare type REMethodDefinition<
   Name extends keyof T,
   F extends Func = T[Name] extends Func ? T[Name] : never
   > = {
-  (this: ThisParameterType<F>, ...args: Parameters<F>): ReturnType<F>;
+  (this: T, ...args: Parameters<F>): ReturnType<F>;
   call(
     this: void,
     self: ThisParameterType<F>,
@@ -23,11 +23,15 @@ declare type RETypeDefinition<T> = {
 };
 
 declare type REManagedObject<T> = {
-    add_ref: () => void
-    release: () => void
-    force_release: () => void
-    get_type_definition: () => RETypeDefinition<T>
-} & T
+  add_ref: () => void;
+  release: () => void;
+  force_release: () => void;
+  get_type_definition: () => RETypeDefinition<T>;
+  call<N extends keyof T, F extends Func = T[N] extends Func ? T[N] : never>(
+    name: N,
+    ...args: Parameters<F>
+  ): ReturnType<F>;
+} & T;
 
 
 declare type Ptr<T = any> = {}
@@ -69,7 +73,7 @@ declare namespace sdk {
   function find_type_definition<T extends keyof TypeMap>(name: T): RETypeDefinition<TypeMap[T]>
   function find_type_definition(name: string): RETypeDefinition<any>
 
-  function to_managed_object<T extends System.Object.T>(ptr: Ptr<T>): REManagedObject<T>
+  function to_managed_object<T>(ptr: Ptr<T>): REManagedObject<T>
   function to_managed_object<T>(obj: T): T
   
   function to_ptr<T>(obj: T): Ptr<T>
