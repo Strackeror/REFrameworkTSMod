@@ -385,9 +385,6 @@ def write_class(file: IO, class_def: Class):
 
     file.write(f"interface __{class_def.local_name}{template}")
     file.write("{\n")
-    file.write(f"// {class_def.name}\n")
-    file.write(f"// {class_def.namespaces}\n")
-    file.write(f"// {dump[class_def.name].get('name_hierarchy')}\n")
 
     for f in class_def.fields:
         if valid_symbol(f.name):
