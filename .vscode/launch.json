@@ -9,9 +9,7 @@
             "type": "python",
             "request": "launch",
             "program": "${workspaceFolder}/IL2CPP/ts-generator.py",
-            "args": [
-                "snow"
-            ],
+            "args": [],
             "cwd": "${workspaceFolder}/IL2CPP",
             "console": "internalConsole",
             "justMyCode": true

@@ -188,12 +188,14 @@ def parseMethod(class_def: Class, method_name: str, method_entry: Dict):
     return new_method
 
 def makeNamespace(cls: Class, name_hierarchy: List[str]):
+    i = 0
     for n in name_hierarchy:
         for s in n.split('.'):
-            cls.namespaces.append(make_valid_symbol(s))
-    if len(cls.namespaces) > 1:
-        if cls.namespaces[-1] in namespace_tree["nodes"]:
-            cls.namespaces[-1] += "_"
+            s = make_valid_symbol(s)
+            if i > 0 and s in namespace_tree["nodes"]:
+                s += "_"
+            i += 1
+            cls.namespaces.append(s)
 
     tree_cursor = namespace_tree
     for k in cls.namespaces:
@@ -229,6 +231,8 @@ def tryParseTemplateParam(name:str, entry: Dict):
     return None
 
 def tryPassFilter(name: str, entry: Dict):
+    if name in ["System.Object", "System.Enum", "System.ValueType", "!0[]"]:
+        return None
     if filter and (not name.startswith(filter)):
         if "parent" in entry:
             return parseClass(entry["parent"])
@@ -303,6 +307,8 @@ def parseClassContent(cls: Class, entry: Dict, name_hierarchy: List[str] | None 
             cls.methods.append(new_method)
     if "fields" in entry:
         for _name, _field in entry["fields"].items():
+            if not _name:
+                continue
             default = ""
             if "default" in _field:
                 default = _field["default"]
