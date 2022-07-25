@@ -56,6 +56,7 @@ class Class:
             ret = ".".join(self.namespaces + [self.local_name])
         return ret
 
+os.chdir(os.path.dirname(__file__))
 
 dump: Dict[str, Dict] = json.load(open("il2cpp_dump.json", encoding="utf-8"))
 print("json loaded")
