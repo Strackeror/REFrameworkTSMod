@@ -6,6 +6,7 @@
     },
     "tstl": {
         "luaTarget": "5.3",
+        "luaLibImport": "inline",
         "tstlVerbose": true,
     }
 }

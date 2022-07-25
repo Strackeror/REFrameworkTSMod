@@ -62,8 +62,6 @@ dump: Dict[str, Dict] = json.load(open("il2cpp_dump.json", encoding="utf-8"))
 print("json loaded")
 
 filter = ""
-if len(sys.argv) > 1:
-    filter = sys.argv[1]
 
 parsed_types = {}
 
@@ -303,9 +301,8 @@ def parseClassContent(cls: Class, entry: Dict, name_hierarchy: List[str] | None 
 
     if "methods" in entry:
         for _name, _method in entry["methods"].items():
-            if cls.generic_count and "Static" in _method["flags"]:
+            if _method["function"] == "0" and "ContainsGenericParameters" not in (_method.get("impl_flags") or ""):
                 continue
-
             new_method = parseMethod(cls, _name, _method)
             cls.methods.append(new_method)
     if "fields" in entry:
@@ -477,7 +474,8 @@ def write_type_map(file: IO):
 
 
 for typename in dump:
-    parseClass(typename)
+    if not sys.argv[1:] or any(a in typename for a in sys.argv[1:]):
+        parseClass(typename)
 print("parsing done")
 
 for type in parsed_types:
