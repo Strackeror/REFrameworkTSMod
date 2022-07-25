@@ -233,6 +233,8 @@ def tryParseTemplateParam(name:str, entry: Dict):
 def tryPassFilter(name: str, entry: Dict):
     if name in ["System.Object", "System.Enum", "System.ValueType", "!0[]"]:
         return None
+    if name.endswith("[]"):
+        return None
     if filter and (not name.startswith(filter)):
         if "parent" in entry:
             return parseClass(entry["parent"])
