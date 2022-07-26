@@ -1,12 +1,16 @@
 {
+    "$schema": "https://raw.githubusercontent.com/TypeScriptToLua/TypeScriptToLua/master/tsconfig-schema.json",
     "compilerOptions": { 
         "outDir": "dist",
         "lib": ["ESNext"],
-        "types": ["lua-types/5.4"]
+        "types": [
+            "lua-types/5.4"
+        ],
+        "incremental": true
     },
     "tstl": {
         "luaTarget": "5.3",
         "luaLibImport": "inline",
-        "tstlVerbose": true,
+        "measurePerformance": true,
     }
 }

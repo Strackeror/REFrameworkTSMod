@@ -1,0 +1,7 @@
+[
+    "snow.data",
+    "snow.player",
+    "snow.quest",
+    "snow.QuestManager",
+    "snow.SnowSingleton"
+]

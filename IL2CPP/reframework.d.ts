@@ -1,5 +1,8 @@
 type Func = (...args:any[]) => any
 
+declare type TypeName = keyof TypeMap;
+declare type REType<T extends TypeName> = TypeMap[T]
+
 declare type REMethodDefinition<
   T, 
   Name extends keyof T,
@@ -38,9 +41,10 @@ declare type Ptr<T = any> = {}
 
 type PtrTuple<T> = {[K in keyof T]: Ptr<T[K]>}
 type First2Elements<T> =
+  T extends [] ? [] :
   T extends [infer E1] ? [E1] :
-  T extends [infer E1, infer E2, ...any] ? [E1, E2] : 
-  []
+  T extends [infer E1, infer E2, ...any] ? [E1, E2] :
+  [any, any]
 
 type HookFuncBefore<F extends Func> =
   /** @noSelf */
@@ -65,6 +69,7 @@ declare namespace sdk {
   function get_managed_singleton<T extends keyof TypeMap>(
     name: T
   ): REManagedObject<TypeMap[T]>
+  function get_managed_singleton(name: string): REManagedObject<any>
 
   function create_instance<T extends keyof TypeMap>(
     name: T
@@ -83,6 +88,8 @@ declare namespace sdk {
   function to_double(ptr: Ptr): number
 
   function float_to_ptr(number: number): Ptr<number>
+
+  function create_managed_array<T extends keyof TypeMap>(name: T, length: number): REManagedObject<System.Array.Generic.T<TypeMap[T]>>
 
   function hook<F extends Func>(
     func: F,

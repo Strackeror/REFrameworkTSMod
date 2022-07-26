@@ -9,9 +9,9 @@
     - npm
 - Run `npm install`
 - Copy the il2cpp-dump.json output file to IL2CPP
-- `cd` into IL2CPP and run `ts-generator.py`
-    - You can add an argument to filter which types are dumped, non-included types fall back to 'any'
-    - This is recommended as typescript can run out of memory when trying to use the full dump
+- run `ts-generator.py` in IL2CPP
+    - You can configure which types are analyzed by editing `IL2CPP/type-filters.json`
+    - Each element of the top-level array is parsed as a regex, then all types that match are used as starting points
 
 
 # Compiling

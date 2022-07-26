@@ -10,7 +10,7 @@ from dataclasses import dataclass, field
 from pprint import pprint
 from string import ascii_letters, digits
 from types import new_class
-from typing import IO, Dict, List, TypedDict
+from typing import IO, Dict, List, Pattern, TypedDict
 from unicodedata import name
 
 
@@ -58,10 +58,10 @@ class Class:
 
 os.chdir(os.path.dirname(__file__))
 
+filters: List[Pattern] = [re.compile(s) for s in (json.load(open("type-filters.json")))]
 dump: Dict[str, Dict] = json.load(open("il2cpp_dump.json", encoding="utf-8"))
-print("json loaded")
 
-filter = ""
+print("json loaded")
 
 parsed_types = {}
 
@@ -127,6 +127,14 @@ typescript_keyword = ["break", "case", "catch",
                       "try", "typeOf", "var",
                       "void", "while", "with"]
 
+def nameInFilter(str: str) -> bool:
+    if not filters:
+        return True
+    if any(re.match(f, str) for f in filters): 
+        return True
+    if str in converted_types:
+        return True
+    return False
 
 def valid_symbol(str: str):
     if not str:
@@ -186,6 +194,7 @@ def parseMethod(class_def: Class, method_name: str, method_entry: Dict):
 
     return new_method
 
+
 def makeNamespace(cls: Class, name_hierarchy: List[str]):
     i = 0
     for n in name_hierarchy:
@@ -206,6 +215,7 @@ def makeNamespace(cls: Class, name_hierarchy: List[str]):
     else:
         cls.local_name = f"T{len(tree_cursor['classes'])}"
 
+
 def parseEnum(cls: Class, entry):
     makeNamespace(cls, entry["name_hierarchy"] or [])
 
@@ -222,8 +232,7 @@ def parseEnum(cls: Class, entry):
     return cls
 
 
-
-def tryParseTemplateParam(name:str, entry: Dict):
+def tryParseTemplateParam(name: str, entry: Dict):
     if groups := re.fullmatch(r"!(\d+)", name):
         new_class = Class(name=name, local_name=f"G{groups[1]}")
         return new_class
@@ -231,16 +240,18 @@ def tryParseTemplateParam(name:str, entry: Dict):
         return parsed_types["Any"]
     return None
 
+
 def tryPassFilter(name: str, entry: Dict):
-    if name in ["System.Object", "System.Enum", "System.ValueType", "!0[]"]:
-        return None
-    if name.endswith("[]"):
-        return None
-    if filter and (not name.startswith(filter)):
-        if "parent" in entry:
-            return parseClass(entry["parent"])
-        return parsed_types["Any"]
+    # if name in ["System.Object", "System.Enum", "System.ValueType", "!0[]"]:
+    #     return None
+    # if name.endswith("[]"):
+    #     return None
+    # if filter and (not name.startswith(filter)):
+    #     if "parent" in entry:
+    #         return parseClass(entry["parent"])
+    #     return parsed_types["Any"]
     return None
+
 
 def tryParseArray(cls: Class, entry: Dict):
     name_hierarchy = entry.get('name_hierarchy') or []
@@ -260,6 +271,7 @@ def tryParseArray(cls: Class, entry: Dict):
         return parseClassContent(cls, entry, ["System", "Array", "Generic"])
     return None
 
+
 def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_params: List[str]):
     cls.generic_parent = parseClass(generic_parent_name, True)
     if not cls.generic_parent.generic_count:
@@ -270,6 +282,7 @@ def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_par
     cls.namespaces = cls.generic_parent.namespaces
     cls.local_name = cls.generic_parent.local_name
     return cls
+
 
 def tryParseGeneric(cls: Class, entry: Dict):
     name_hierarchy = entry.get('name_hierarchy') or []
@@ -288,10 +301,12 @@ def tryParseGeneric(cls: Class, entry: Dict):
         return parseClassContent(cls, entry, name_hierarchy)
     return None
 
+
 def tryParseEnum(cls: Class, entry: Dict):
     if entry.get("parent") == "System.Enum":
         return parseEnum(cls, entry)
     return None
+
 
 def parseClassContent(cls: Class, entry: Dict, name_hierarchy: List[str] | None = None):
     name_hierarchy = name_hierarchy or entry.get("name_hierarchy")
@@ -329,9 +344,9 @@ def parseClass(name: str, force: bool = False) -> Class:
     if name not in dump:
         print("Error finding type", name)
         return parsed_types["Any"]
-    
+
     entry = dump[name]
-    if cls:= tryParseTemplateParam(name, entry):
+    if cls := tryParseTemplateParam(name, entry):
         parsed_types[name] = cls
         return cls
 
@@ -346,26 +361,21 @@ def parseClass(name: str, force: bool = False) -> Class:
     if cls := tryParseEnum(new_class, entry):
         return cls
 
-    if cls:= tryParseArray(new_class, entry):
+    if cls := tryParseArray(new_class, entry):
         return cls
-    
-    if cls:= tryParseGeneric(new_class, entry):
+
+    if cls := tryParseGeneric(new_class, entry):
         return cls
-    
+
     return parseClassContent(new_class, entry) or parsed_types["Any"]
 
-# Second pass for fixes
 def passClass(cls: Class):
+    '''second pass for fixes'''
     if cls.parent:
         parent = cls.parent
         for g in cls.parent.generic_params:
             if g == cls:
                 cls.parent = parent.parent
-
-
-
-
-
 
 
 def write_method(file: IO, class_def: Class, method: Method, name: str):
@@ -375,7 +385,7 @@ def write_method(file: IO, class_def: Class, method: Method, name: str):
         file.write("  " + name)
 
     # typescript-to-lua adds an implicit self by default
-    
+
     file.write("(")
     i = 0
     for p in method.params:
@@ -432,8 +442,8 @@ def write_class(file: IO, class_def: Class):
         if len(get.params) == 1:
             input = get.params[0]
             output = get.ret
-            file.write(f'  [{make_valid_symbol(input.name)}: {input.type.typescript_type()}]: {output.typescript_type()},\n')
-
+            file.write(
+                f'  [{make_valid_symbol(input.name)}: {input.type.typescript_type()}]: {output.typescript_type()},\n')
 
     file.write("}\n")
 
@@ -441,10 +451,10 @@ def write_class(file: IO, class_def: Class):
         f'type {class_def.local_name}{template_full} = __{class_def.local_name}{template} ')
     if class_def.parent:
         # file.write(f"& {class_def.parent.typescript_type()}")
-        
+
         # Typescript does not support type overriding, so we have to Omit the parent's type common keys
         # Keeping the code for basic inheritance in case we need it
-        
+
         # Generating a defined Omit<> with a tuple of keys is possible, would it speed up things ?
         file.write(
             f"& Omit<{class_def.parent.typescript_type()}, keyof __{class_def.local_name}{template}>")
@@ -452,7 +462,7 @@ def write_class(file: IO, class_def: Class):
 
 
 def write_enum(file: IO, class_def: Class):
-    file.write("enum T {\n")
+    file.write(f"enum {class_def.local_name} {{\n")
     for f in class_def.fields:
         if f.default:
             if not isinstance(f.default, int):
@@ -493,12 +503,13 @@ def write_tree(file: IO, name: str, tree_cursor: NamespaceTree, prev_name=""):
 def write_type_map(file: IO):
     file.write("declare type TypeMap = {\n")
     for name, cls in parsed_types.items():
-        file.write(f' "{name}": {cls.typescript_type()},\n')
+        if nameInFilter(name):
+            file.write(f' "{name}": {cls.typescript_type()},\n')
     file.write("}\n")
 
 
 for typename in dump:
-    if not sys.argv[1:] or any(a in typename for a in sys.argv[1:]):
+    if nameInFilter(typename):
         parseClass(typename)
 print("parsing done")
 
