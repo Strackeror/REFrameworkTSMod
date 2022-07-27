@@ -1,4 +1,5 @@
 from __future__ import annotations
+from faulthandler import is_enabled
 
 import re
 import pdb
@@ -441,9 +442,9 @@ def write_class(file: IO, class_def: Class):
         if len(get.params) == 1:
             input = get.params[0]
             output = get.ret
-            file.write(
-                f'  [{make_valid_symbol(input.name)}: {input.type.typescript_type()}]'
-                f': {output.typescript_type()},\n')
+            if input.type.name in converted_types:
+                file.write(f'  [idx: {input.type.typescript_type()}]')
+                file.write(f': {output.typescript_type()},\n')
 
     file.write("}\n")
 
