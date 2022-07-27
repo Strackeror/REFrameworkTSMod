@@ -1,12 +1,9 @@
-let f = sdk.find_type_definition("snow.data.AchievementDef").get_method("getAchievementNum")
+import {snow} from "../IL2CPP/il2cpp"
+
 sdk.hook(
-  f,
-  (args) => {
-    let self = sdk.to_managed_object(args[1]);
-    print(self.getAchievementNum());
-    return sdk.PreHookresult.SKIP_ORIGINAL
-  },
-  (retval) => {
-    return retval;
+  snow.player.PlayerWeaponCtrl.M.start,
+  ([_, self]) => {
+    let obj = sdk.to_managed_object(self)
+    obj._bodyConstScale = 1.0
   }
-);
+)

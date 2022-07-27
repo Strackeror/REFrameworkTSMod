@@ -1,7 +1,8 @@
 [
+    "snow.data.Dango",
     "snow.data",
-    "snow.player",
-    "snow.quest",
-    "snow.QuestManager",
-    "snow.SnowSingleton"
+    "NOTsnow.player",
+    "NOTsnow.quest",
+    "NOTsnow.QuestManager",
+    "NOTsnow.SnowSingleton"
 ]
