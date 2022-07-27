@@ -2,16 +2,21 @@ local create_namespace
 local namespace_functions = {}
 
 ---@param self Namespace
-function namespace_functions.typedef(self)
-    return sdk.find_type_definition(self._name)
+function namespace_functions.M(self)
+    return self
+end
+
+---@param self Namespace
+function namespace_functions.Instance(self)
+    return sdk.get_managed_singleton(self._name)
 end
 
 local namespace_builder_metatable = {
     ---@param name string
     __index = function(self, name)
         -- Fallback for fields that can't be taken as symbols
-        if name == "M" then
-            return self
+        if namespace_functions[name] then
+            return namespace_functions[name](self)
         end
         local typedef = rawget(self, "_typedef")
         if typedef then

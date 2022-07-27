@@ -1,7 +1,10 @@
 // Generic types used to emulate inheritance
 
-declare type Members<T> = { 
-    [K in keyof T]: 
+declare type Members<T> = 
+{
+  Instance?: T,
+} & { 
+    [K in keyof T]:
       T[K] extends (this: any, ...args: infer Params) => infer ReturnType ?
         (this: T, ...args: Params) => ReturnType :
       T[K] extends (this: any) => infer ReturnType ? 

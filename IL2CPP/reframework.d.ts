@@ -1,5 +1,5 @@
 type TypeMap = import("./typemap").TypeMap
-type System_Array<T> = import("./il2cpp").System.Array.Generic<T>
+type System_Array<T> = import("./IL2CPP").System.Array.Generic<T>
 
 type Func = (...args:any[]) => any
 
@@ -93,6 +93,9 @@ declare namespace sdk {
   function float_to_ptr(number: number): Ptr<number>
 
   function create_managed_array<T extends keyof TypeMap>(name: T, length: number): REManagedObject<System_Array<TypeMap[T]>>
+  function create_managed_array(name: string, length: number): REManagedObject<System_Array<any>>
+
+  function create_managed_string(content: string): REManagedObject<string>
 
   function hook<F extends Func>(
     func: F,

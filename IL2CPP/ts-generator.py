@@ -19,7 +19,7 @@ from unicodedata import name
 class Field:
     type: Class
     name: str = ""
-    default: str = ""
+    default: str | int | None = ""
     static: bool = False
 
 
@@ -211,7 +211,7 @@ def parseMethods(cls: Class, cls_entry: Dict):
 def parseFields(cls: Class, cls_entry: Dict):
     if "fields" in cls_entry:
         for _name, _field in cls_entry["fields"].items():
-            default = _field.get("default") or ""
+            default = _field.get("default")
             static = "Static" in (_field.get("flags") or "")
             cls.fields.append(
                 Field(parseClass(_field["type"]), _name, default, static))
@@ -478,10 +478,11 @@ def write_class_namespace(file: IO, cls: Class):
 def write_enum(file: IO, class_def: Class):
     file.write(f"enum {class_def.local_name()} {{\n")
     for f in class_def.fields:
-        if not isinstance(f.default, int):
-            file.write(f'  {f.name} = "{f.default}",\n')
-        else:
-            file.write(f"  {f.name} = {f.default},\n")
+        if f.default != None:
+            if isinstance(f.default, int):
+                file.write(f"  {f.name} = {f.default},\n")
+            else:
+                file.write(f'  {f.name} = "{f.default}",\n')
     file.write("}\n")
 
 
@@ -527,7 +528,7 @@ def write_type_map(file: IO):
         file.write(f"export type G{i} = any;\n")
     file.write("import {\n  ")
     file.write(',\n  '.join(top_types))
-    file.write('\n} from "./il2cpp"\n')
+    file.write('\n} from "./IL2CPP"\n')
 
     file.write("declare type TypeMap = {\n")
     file.write(type_map_text)
@@ -551,7 +552,7 @@ for type in parsed_types:
 
 print("second pass done")
 
-file = open("il2cpp.d.ts", 'w', encoding='utf-8')
+file = open("IL2CPP.d.ts", 'w', encoding='utf-8')
 for i in range(10):
     file.write(f"export type G{i} = any;\n")
 write_tree(file, "", namespace_tree)
