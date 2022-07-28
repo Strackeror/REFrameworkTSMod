@@ -35,7 +35,7 @@ sdk.hook(
     let player = sdk.to_managed_object(self);
     let count = sdk.to_int64(cnt);
 
-    next_stamina_max = count * 30;
+    next_stamina_max = count * 30.0;
     next_player = player;
   },
 
