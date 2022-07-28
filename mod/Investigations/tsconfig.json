@@ -14,7 +14,8 @@
                 "../../IL2CPP/*",
                 "./*"
             ],
-        }
+        },
+        "strict": true,
     },
     "tstl": {
         "luaLibImport": "inline",

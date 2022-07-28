@@ -7,12 +7,14 @@ import {
 } from "Investigations/QuestGenerator";
 import QCF = snow.gui.fsm.questcounter.GuiQuestCounterFsmManager;
 
-export interface Investigation {
+export interface InvestigationDef {
   map: number;
   target_monster: number;
   extra_monster: [number, number];
   pinned: boolean;
-  quest_data?: snow.quest.QuestData;
+}
+export interface Investigation extends InvestigationDef {
+  quest_data: snow.quest.QuestData;
 }
 
 let current_investigation_data: {
@@ -27,15 +29,14 @@ let investigation_id_map: {
 function get_investigations(): Investigation[] {
   const current_name = snow.SnowSaveService.M.Instance?.getCurrentHunterName();
   if (!current_name) {
-    return;
+    return [];
   }
   if (current_investigation_data.current_player == current_name) {
     return current_investigation_data.investigations;
   }
 
-  current_investigation_data.investigations = json.load_file(
-    `Investigations/${current_name}.json`
-  );
+  current_investigation_data.investigations =
+    json.load_file(`Investigations/${current_name}.json`) ?? [];
   for (let i of current_investigation_data.investigations) {
     i.quest_data = generate_quest_data(i);
   }
@@ -53,7 +54,13 @@ function save_investigations() {
   );
 }
 
-let next_returned_text: string = undefined
+function get_player_name(): string {
+  return (
+    snow.SnowSaveService.M.Instance?.getCurrentHunterName() ?? "__Unknown__"
+  );
+}
+
+let next_returned_text: string | undefined = undefined
 sdk.hook(
   snow.quest.QuestData.M.getQuestTextCore,
   (args) => {
@@ -98,15 +105,11 @@ sdk.hook(snow.QuestManager.M.questEnemyDie, ([_, self, mon]) => {
   if (quest_mgr.getQuestRank_Lv() != snow.QuestManager.QuestRank.Master) {
     return;
   }
-  quest_mgr._QuestDataDictionary;
   let monster = sdk.to_managed_object(mon);
   let monster_id = monster.get_EnemyType();
 
-  if (snow.QuestManager.M.Instance.getQuestRank_Lv() != snow.QuestManager.QuestRank.Master) {
-    return
-  }
 
-  let inv = create_investigation(snow.SnowSaveService.M.Instance.getCurrentHunterName(), monster_id)
+  let inv = create_investigation(get_player_name(), monster_id) as Investigation
   if (!inv) {
      return
   }
@@ -120,6 +123,10 @@ sdk.hook(snow.QuestManager.M.makeQuestNoList, undefined, (retval) => {
   let questCounter =
     snow.gui.fsm.questcounter.GuiQuestCounterFsmManager.M.Instance;
   let questManager = snow.QuestManager.M.Instance;
+
+  if (!questCounter || !questManager) {
+    return retval
+  }
 
   if (
     questCounter.getQuestCounterSelectedTopMenu() ==
@@ -139,6 +146,6 @@ sdk.hook(snow.QuestManager.M.makeQuestNoList, undefined, (retval) => {
       list.Add(new_quest_no)
     }
     questManager._QuestDataDictionary
-    return retval
   }
+  return retval
 });

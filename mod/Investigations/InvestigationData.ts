@@ -1,4 +1,4 @@
-type EnemyData = {
+export type EnemyData = {
     "_RouteNo": number,
     "_PartsTbl": number,
     "_InitSetName": string

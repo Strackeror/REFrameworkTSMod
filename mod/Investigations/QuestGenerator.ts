@@ -1,7 +1,7 @@
 import { snow } from "Investigations/IL2CPP";
 import { create_array } from "Investigations/Utilities";
-import { Data, MonsterData } from "Investigations/InvestigationData";
-import { Investigation } from "Investigations/Investigation";
+import { Data, EnemyData, MonsterData } from "Investigations/InvestigationData";
+import { Investigation, InvestigationDef } from "Investigations/Investigation";
 
 import QuestOrderType = snow.quest.QuestOrderType;
 
@@ -176,6 +176,22 @@ function can_capture(monster_data: MonsterData) {
   return elder_dragons.indexOf(monster_data.Name) >= 0;
 }
 
+function set_enemy_data(quest_enemy_data: snow.quest.NormalQuestDataForEnemy.Param, enemy_data: EnemyData, index: number) {
+  quest_enemy_data._RouteNo[index] = enemy_data["_RouteNo"]
+  quest_enemy_data._PartsTbl[index] = enemy_data["_PartsTbl"]
+  quest_enemy_data._InitSetName[index] = enemy_data["_InitSetName"]
+  quest_enemy_data._SubType[index] = enemy_data["_SubType"]
+  quest_enemy_data._VitalTbl[index] = enemy_data["_VitalTbl"]
+  quest_enemy_data._AttackTbl[index] = enemy_data["_AttackTbl"]
+  quest_enemy_data._OtherTbl[index] = enemy_data["_OtherTbl"]
+  quest_enemy_data._StaminaTbl[index] = enemy_data["_StaminaTbl"]
+  quest_enemy_data._Scale[index] = enemy_data["_Scale"]
+  quest_enemy_data._ScaleTbl[index] = enemy_data["_ScaleTbl"]
+  quest_enemy_data._Difficulty[index] = enemy_data["_Difficulty"]
+  quest_enemy_data._BossMulti[index] = enemy_data["_BossMulti"]
+  quest_enemy_data._IndividualType[index] = enemy_data["_IndividualType"]
+}
+
 function set_quest_target(
   quest_data: snow.quest.QuestData,
   monster_id: number
@@ -206,12 +222,8 @@ function set_quest_target(
   normal_quest_data._QuestLv = monster_data.QuestLevel;
 
   let enemy_quest_data = quest_data.get_RawEnemy();
-  for (let k in monster_data.EnemyDataList["0"][0]) {
-    if (k.startsWith("__")) {
-      continue;
-    }
-    enemy_quest_data[k][0] = monster_data.EnemyDataList["0"][0][k];
-  }
+  let enemy_data = monster_data.EnemyDataList["0"][0]
+  set_enemy_data(enemy_quest_data, enemy_data, 0)
 }
 
 function set_extra(
@@ -231,12 +243,8 @@ function set_extra(
   normal._BossSetCondition[index] = 1;
 
   let enemy_quest_data = quest_data.get_RawEnemy();
-  for (let k in monster_data.EnemyDataList["0"][0]) {
-    if (k.startsWith("__")) {
-      continue;
-    }
-    enemy_quest_data[k][0] = monster_data.EnemyDataList["0"][0][k];
-  }
+  let enemy_data = monster_data.EnemyDataList["0"][0]
+  set_enemy_data(enemy_quest_data, enemy_data, index)
 }
 
 function set_map(quest_data: snow.quest.QuestData, map_id: number) {
@@ -261,7 +269,7 @@ export function create_investigation(player_name: string, monster_id: number) {
   let monsters_in_map = Object.values(Data.Monsters)
     .filter((m) => m.MapIds.indexOf(map) >= 0)
     .map((m) => m.Id);
-  let investigation: Investigation = {
+  let investigation: InvestigationDef = {
     map,
     target_monster: monster_id,
     extra_monster: [pickr(monsters_in_map), pickr(monsters_in_map)],
@@ -270,10 +278,8 @@ export function create_investigation(player_name: string, monster_id: number) {
   return investigation;
 }
 
-let a: Investigation;
-
 export function generate_quest_data(
-  investigation: Investigation
+  investigation: InvestigationDef,
 ): snow.quest.QuestData {
   log.info(
     `generating quest for investigation: ${json.dump_string(investigation)}`
