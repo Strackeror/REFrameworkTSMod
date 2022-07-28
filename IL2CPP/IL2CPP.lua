@@ -56,4 +56,6 @@ create_namespace = function(basename, force_namespace)
 end
 
 
-return create_namespace("")
+return setmetatable({}, { __index = function(self, name)
+    return create_namespace(name)
+end })
