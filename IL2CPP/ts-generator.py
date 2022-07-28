@@ -423,7 +423,7 @@ def write_class(file: IO, class_def: Class):
             ",".join(f"G{i} = any" for i in range(
                 class_def.generic_count)) + ">"
 
-    file.write(f"interface __{class_def.local_name()}{template}")
+    file.write(f"type __{class_def.local_name()}{template} =")
     file.write("{\n")
 
     (methods, fields) = filter_members(class_def, True)
@@ -443,6 +443,10 @@ def write_class(file: IO, class_def: Class):
             if input.type.name in converted_types:
                 file.write(f'  [idx: {input.type.typescript_type()}]')
                 file.write(f': {output.typescript_type()},\n')
+            elif input.type.is_enum():
+                file.write(f'}} & {{ [idx in keyof {input.type.typescript_type()}]')
+                file.write(f': {output.typescript_type()};\n')
+                
 
     file.write("}\n")
 
