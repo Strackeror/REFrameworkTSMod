@@ -18,7 +18,7 @@ def zipfolder(foldername: str, zip_path: str):
                         )))
 
 
-os.makedirs("output")
+os.makedirs("output", exist_ok=True)
 mod_dirs = next(os.walk("mod"))[1]
 for m in mod_dirs:
     name = os.path.basename(m)
