@@ -1,0 +1,31 @@
+{
+    "$schema": "https://raw.githubusercontent.com/TypeScriptToLua/TypeScriptToLua/master/tsconfig-schema.json",
+    "compilerOptions": {
+        "lib": [
+            "ESNext"
+        ],
+        "types": [
+            "lua-types/5.4"
+        ],
+        "incremental": true,
+        "outDir": "./dist/Investigations",
+        "baseUrl": ".",
+        "paths": {
+            "Investigations/IL2CPP/*": [
+                "../../IL2CPP/*"
+            ],
+            "Investigations/*": [
+                "./*"
+            ]
+        }
+    },
+    "tstl": {
+        "luaLibImport": "inline",
+        "luaTarget": "5.3",
+        "measurePerformance": true,
+    },
+    "include": [
+        "./**/*",
+        "../../IL2CPP/*"
+    ]
+}
