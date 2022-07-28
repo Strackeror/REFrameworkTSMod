@@ -254,8 +254,9 @@ function set_map(quest_data: snow.quest.QuestData, map_id: number) {
 }
 
 export function create_investigation(player_name: string, monster_id: number) {
-  let monster_data = Data.Monsters[monster_id];
-  if (!monster_data || monster_data.MapIds.length > 0) {
+  let monster_data = Data.Monsters[monster_id.toString()];
+  if (!monster_data || monster_data.MapIds.length == 0) {
+    log.info(`not enough monster data for monster ${monster_id}`)
     return;
   }
 
@@ -272,7 +273,7 @@ export function create_investigation(player_name: string, monster_id: number) {
   let investigation: InvestigationDef = {
     map,
     target_monster: monster_id,
-    extra_monster: [pickr(monsters_in_map), pickr(monsters_in_map)],
+    extra_monsters: [pickr(monsters_in_map), pickr(monsters_in_map)],
     pinned: false,
   };
   return investigation;
@@ -287,8 +288,8 @@ export function generate_quest_data(
   let quest_data = create_base_quest_data();
   set_map(quest_data, investigation.map);
   set_quest_target(quest_data, investigation.target_monster);
-  set_extra(quest_data, investigation.extra_monster[0], 1);
-  set_extra(quest_data, investigation.extra_monster[1], 2);
+  set_extra(quest_data, investigation.extra_monsters[0], 1);
+  set_extra(quest_data, investigation.extra_monsters[1], 2);
   return quest_data;
 }
 

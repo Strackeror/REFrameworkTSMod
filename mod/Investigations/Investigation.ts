@@ -10,7 +10,7 @@ import QCF = snow.gui.fsm.questcounter.GuiQuestCounterFsmManager;
 export interface InvestigationDef {
   map: number;
   target_monster: number;
-  extra_monster: [number, number];
+  extra_monsters: [number, number];
   pinned: boolean;
 }
 export interface Investigation extends InvestigationDef {
@@ -37,9 +37,10 @@ function get_investigations(): Investigation[] {
 
   current_investigation_data.investigations =
     json.load_file(`Investigations/${current_name}.json`) ?? [];
-  for (let i of current_investigation_data.investigations) {
-    i.quest_data = generate_quest_data(i);
+  for (let inv of current_investigation_data.investigations) {
+    inv.quest_data = (generate_quest_data(inv) as REManagedObject<snow.quest.QuestData>).add_ref()
   }
+  current_investigation_data.current_player = current_name
   return current_investigation_data.investigations;
 }
 
@@ -50,7 +51,7 @@ function save_investigations() {
   }
   json.dump_file(
     `Investigations/${current_name}.json`,
-    current_investigation_data
+    current_investigation_data.investigations
   );
 }
 
@@ -87,7 +88,7 @@ sdk.hook(
     }
 
     if (next_returned_text != undefined) {
-      return sdk.PreHookresult.SKIP_ORIGINAL
+      return sdk.PreHookResult.SKIP_ORIGINAL
     }
   },
 
@@ -108,13 +109,14 @@ sdk.hook(snow.QuestManager.M.questEnemyDie, ([_, self, mon]) => {
   let monster = sdk.to_managed_object(mon);
   let monster_id = monster.get_EnemyType();
 
-
   let inv = create_investigation(get_player_name(), monster_id) as Investigation
   if (!inv) {
-     return
+    log.info(`failed to create investigation for ${monster_id}`)
+    return;
   }
 
-  inv.quest_data = generate_quest_data(inv)
+  snow.gui.ChatManager.M.Instance?.reqAddChatBossIconInfo(monster_id, "New investigation", false, false)
+  inv.quest_data = (generate_quest_data(inv) as REManagedObject<snow.quest.QuestData>).add_ref()
   get_investigations().push(inv)
   save_investigations()
 });
@@ -132,12 +134,14 @@ sdk.hook(snow.QuestManager.M.makeQuestNoList, undefined, (retval) => {
     questCounter.getQuestCounterSelectedTopMenu() ==
       QCF.QuestCounterTopMenuType.Normal_Hall_Master &&
     questCounter.getQuestCounterSelectedRankMenu() ==
-      QCF.QuestCounterRankMenuType.Master &&
+      QCF.QuestCounterRankMenuType.None &&
     questCounter.getQuestCounterSelectedLevelMenu() == 
       QCF.QuestCounterLevelMenuType.Gathering
   ) {
     let list = sdk.to_managed_object(retval)
     let i = 0;
+    log.info("adding to list")
+    log.info(`${json.dump_string(get_investigations())}`)
     for (let inv of get_investigations()) {
       let new_quest_no = 942000 + i++;
       investigation_id_map[new_quest_no] = inv
