@@ -3,3 +3,4 @@ il2cpp.d.ts
 typemap.d.ts
 dist/
 node_modules/
+output/
