@@ -7,16 +7,13 @@
         "types": [
             "lua-types/5.4"
         ],
-        "incremental": true,
         "outDir": "./dist/Investigations",
         "baseUrl": ".",
         "paths": {
-            "Investigations/IL2CPP/*": [
-                "../../IL2CPP/*"
-            ],
             "Investigations/*": [
+                "../../IL2CPP/*",
                 "./*"
-            ]
+            ],
         }
     },
     "tstl": {

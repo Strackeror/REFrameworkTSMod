@@ -7,15 +7,12 @@
         "types": [
             "lua-types/5.4"
         ],
-        "incremental": true,
         "outDir": "./dist/ConvenientSpiribirds",
         "baseUrl": ".",
         "paths": {
-            "ConvenientSpiribirds/IL2CPP/*": [
-                "../../IL2CPP/*"
-            ],
             "ConvenientSpiribirds/*": [
-                "./*"
+                "./*",
+                "../../IL2CPP/*"
             ]
         }
     },

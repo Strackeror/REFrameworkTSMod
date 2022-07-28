@@ -1,5 +1,6 @@
 {
     "Lua.diagnostics.globals": [
         "sdk"
-    ]
+    ],
+    "typescript.preferences.importModuleSpecifier": "non-relative"
 }

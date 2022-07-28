@@ -1,6 +1,6 @@
 il2cpp_dump.json
 il2cpp.d.ts
 typemap.d.ts
-dist/
+**/dist/*/*
 node_modules/
 output/

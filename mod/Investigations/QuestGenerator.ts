@@ -1,4 +1,9 @@
-import { create_array } from "./Utilities";
+import { snow } from "Investigations/IL2CPP";
+import { create_array } from "Investigations/Utilities";
+import { Data, MonsterData } from "Investigations/InvestigationData";
+import { Investigation } from "Investigations/Investigation";
+
+import QuestOrderType = snow.quest.QuestOrderType;
 
 let QuestData = sdk.find_type_definition("snow.quest.QuestData");
 let NormalQuestData = sdk.find_type_definition(
@@ -25,10 +30,11 @@ function create_base_quest_data() {
     normal_quest_data._TimeLimit = 50;
     normal_quest_data._QuestLife = 3; // carts
 
-    normal_quest_data._OrderType = create_array(
-      "snow.quest.QuestOrderType",
-      [0x10, 0]
-    ); // Starting conditions
+    normal_quest_data._OrderType = create_array("snow.quest.QuestOrderType", [
+      QuestOrderType.M1,
+      QuestOrderType.None,
+    ]); // Starting conditions
+
     normal_quest_data._TargetType = create_array(
       "snow.quest.QuestTargetType",
       [0, 0]
@@ -156,7 +162,138 @@ function create_base_quest_data() {
   let quest_data = QuestData.create_instance(true);
   quest_data.set_RawNormal(normal_quest_data);
   quest_data.set_RawEnemy(enemy_quest_data);
+  return quest_data;
 }
 
-export function create_investigation() {
+let elder_dragons = [
+  "Teostra",
+  "Kushala Daora",
+  "Chameleos",
+  "Malzeno",
+  "Shagaru Magal",
+];
+function can_capture(monster_data: MonsterData) {
+  return elder_dragons.indexOf(monster_data.Name) >= 0;
+}
+
+function set_quest_target(
+  quest_data: snow.quest.QuestData,
+  monster_id: number
+) {
+  let monster_data = Data.Monsters[monster_id.toString()];
+  if (!monster_data) {
+    return;
+  }
+
+  if (monster_data.MapIds.length == 0) {
+    return;
+  }
+
+  let normal_quest_data = quest_data.get_RawNormal();
+  normal_quest_data._QuestType = snow.quest.QuestType.HUNTING;
+  normal_quest_data._TargetType[0] = snow.quest.QuestTargetType.Hunting;
+  if (!can_capture(monster_data)) {
+    (normal_quest_data._QuestType = snow.quest.QuestType.KILL),
+      (normal_quest_data._TargetType[0] = snow.quest.QuestTargetType.Kill);
+  }
+
+  normal_quest_data._TgtEmType[0] = monster_data.Id;
+  normal_quest_data._TgtNum[0] = 1;
+
+  normal_quest_data._BossEmType[0] = monster_data.Id;
+  normal_quest_data._BossSetCondition[0] = 1;
+  normal_quest_data._Icon[0] = monster_data.Icon;
+  normal_quest_data._QuestLv = monster_data.QuestLevel;
+
+  let enemy_quest_data = quest_data.get_RawEnemy();
+  for (let k in monster_data.EnemyDataList["0"][0]) {
+    if (k.startsWith("__")) {
+      continue;
+    }
+    enemy_quest_data[k][0] = monster_data.EnemyDataList["0"][0][k];
+  }
+}
+
+function set_extra(
+  quest_data: snow.quest.QuestData,
+  monster_id: number,
+  index: number
+) {
+  let monster_data = Data.Monsters[monster_id.toString()];
+  if (!monster_data) {
+    return;
+  }
+
+  let normal = quest_data.get_RawNormal();
+  normal._InitExtraEmNum += 1;
+
+  normal._BossEmType[index] = monster_id;
+  normal._BossSetCondition[index] = 1;
+
+  let enemy_quest_data = quest_data.get_RawEnemy();
+  for (let k in monster_data.EnemyDataList["0"][0]) {
+    if (k.startsWith("__")) {
+      continue;
+    }
+    enemy_quest_data[k][0] = monster_data.EnemyDataList["0"][0][k];
+  }
+}
+
+function set_map(quest_data: snow.quest.QuestData, map_id: number) {
+  quest_data.get_RawNormal()._MapNo = map_id;
+  quest_data.get_RawEnemy()._EmsSetNo =
+    Data.Maps[map_id.toString()].EmsSetNo[0];
+}
+
+export function create_investigation(player_name: string, monster_id: number) {
+  let monster_data = Data.Monsters[monster_id];
+  if (!monster_data || monster_data.MapIds.length > 0) {
+    return;
+  }
+
+  math.randomseed(os.time(), player_name.length ^ string.byte(player_name));
+
+  let pickr = (t: any[]): any => {
+    return t[math.random(t.length) - 1];
+  };
+
+  let map = pickr(monster_data.MapIds);
+  let monsters_in_map = Object.values(Data.Monsters)
+    .filter((m) => m.MapIds.indexOf(map) >= 0)
+    .map((m) => m.Id);
+  let investigation: Investigation = {
+    map,
+    target_monster: monster_id,
+    extra_monster: [pickr(monsters_in_map), pickr(monsters_in_map)],
+    pinned: false,
+  };
+  return investigation;
+}
+
+let a: Investigation;
+
+export function generate_quest_data(
+  investigation: Investigation
+): snow.quest.QuestData {
+  log.info(
+    `generating quest for investigation: ${json.dump_string(investigation)}`
+  );
+  let quest_data = create_base_quest_data();
+  set_map(quest_data, investigation.map);
+  set_quest_target(quest_data, investigation.target_monster);
+  set_extra(quest_data, investigation.extra_monster[0], 1);
+  set_extra(quest_data, investigation.extra_monster[1], 2);
+  return quest_data;
+}
+
+export function update_quest_no(
+  quest_data: snow.quest.QuestData,
+  quest_no: number
+) {
+  quest_data.get_RawNormal()._QuestNo = quest_no;
+  quest_data.get_RawEnemy()._QuestNo = quest_no;
+}
+
+export function get_monster_name(monster_id: number): string {
+  return Data.Monsters[monster_id.toString()].Name;
 }
