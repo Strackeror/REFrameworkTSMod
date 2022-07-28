@@ -14,6 +14,7 @@ declare type Members<T> =
 
 declare type Inherit<T, Parent> = T & Omit<Parent, keyof (T)>
 
-
-
-
+// Tag type for static functions
+declare interface Static {
+  __Static: Static;
+}

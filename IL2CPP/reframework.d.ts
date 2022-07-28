@@ -52,11 +52,13 @@ type First2Elements<T> =
 type HookFuncBefore<F extends Func> =
   /** @noSelf */
   (
-    args: [
-      Ptr<void>,
-      Ptr<ThisParameterType<F>>,
-      ...First2Elements<PtrTuple<Parameters<F>>>
-    ]
+    args: ThisParameterType<F> extends Static
+      ? [Ptr<void>, ...First2Elements<PtrTuple<Parameters<F>>>]
+      : [
+          Ptr<void>,
+          Ptr<ThisParameterType<F>>,
+          ...First2Elements<PtrTuple<Parameters<F>>>
+        ]
   ) => sdk.PreHookResult | void;
 
 type HookFuncAfter<F extends Func> =
