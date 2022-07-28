@@ -99,9 +99,9 @@ declare namespace sdk {
 
   function hook<F extends Func>(
     func: F,
-    before: HookFuncBefore<F>,
+    before: HookFuncBefore<F> | undefined,
     after?: HookFuncAfter<F>
-  );
+  ): void;
 
 
   enum PreHookresult {
@@ -121,8 +121,8 @@ declare namespace json {
 
 /** @noSelf */
 declare namespace log {
-  function debug(text: string)
-  function info(text: string)
-  function warn(text: string)
-  function error(text: string)
+  function debug(text: string): void
+  function info(text: string): void
+  function warn(text: string): void
+  function error(text: string): void
 }
