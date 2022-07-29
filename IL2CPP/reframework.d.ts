@@ -29,7 +29,7 @@ declare type RETypeDefinition<T> = {
 };
 
 declare type REManagedObject<T> = {
-  add_ref: () => void;
+  add_ref: () => REManagedObject<T>;
   release: () => void;
   force_release: () => void;
   get_type_definition: () => RETypeDefinition<T>;
@@ -52,12 +52,14 @@ type First2Elements<T> =
 type HookFuncBefore<F extends Func> =
   /** @noSelf */
   (
-    args: [
-      Ptr<void>,
-      Ptr<ThisParameterType<F>>,
-      ...First2Elements<PtrTuple<Parameters<F>>>
-    ]
-  ) => sdk.PreHookresult | void;
+    args: ThisParameterType<F> extends Static
+      ? [Ptr<void>, ...First2Elements<PtrTuple<Parameters<F>>>]
+      : [
+          Ptr<void>,
+          Ptr<ThisParameterType<F>>,
+          ...First2Elements<PtrTuple<Parameters<F>>>
+        ]
+  ) => sdk.PreHookResult | void;
 
 type HookFuncAfter<F extends Func> =
   /** @noSelf */
@@ -104,7 +106,7 @@ declare namespace sdk {
   ): void;
 
 
-  enum PreHookresult {
+  enum PreHookResult {
     CALL_ORIGINAL,
     SKIP_ORIGINAL
   }

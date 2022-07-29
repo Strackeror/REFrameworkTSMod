@@ -14,12 +14,13 @@ from types import new_class
 from typing import IO, Dict, List, Pattern, Set, Tuple
 from unicodedata import name
 
+GENERAL_INDEXING = False
 
 @dataclass
 class Field:
     type: Class
     name: str = ""
-    default: str | int | None = ""
+    default: str | int | None = None
     static: bool = False
 
 
@@ -219,6 +220,7 @@ def parseFields(cls: Class, cls_entry: Dict):
 def makeNamespace(cls: Class, name_hierarchy: List[str]):
     i = 0
     for n in name_hierarchy:
+        n = n.replace('`', '.T')
         for s in n.split('.'):
             s = make_valid_symbol(s)
             if i > 0 and s in namespace_tree.nodes:
@@ -266,22 +268,21 @@ def tryPassFilter(name: str, entry: Dict):
 
 
 def tryParseArray(cls: Class, entry: Dict):
-    name_hierarchy = entry.get('name_hierarchy') or []
-    name = cls.name
-    if name_hierarchy == [""]:
-        if groups := re.fullmatch(r'(.+)(\[\])', name):
-            if not name.startswith("!"):
-                if groups[1] in dump:
-                    return parseGenericSpecialization(cls, "!0[]", [groups[1]])
-                else:
-                    return parseGenericSpecialization(cls, "!0[]", ["unknown"])
-        else:
-            return parseClassContent(cls, entry, ["System", "Array", "Other"])
+    if entry.get("parent") != "System.Array":
+        return None
 
+    name = cls.name
     if name == "!0[]":
         cls.generic_count = 1
         return parseClassContent(cls, entry, ["System", "Array", "Generic"])
-    return None
+    
+    get_func = [entry["methods"][m] for m in entry["methods"] if re.fullmatch(r'Get\d+', m)][0]
+    contained_type: str = get_func["returns"]["type"]
+    index_count = len(get_func["params"])
+    if index_count == 1:
+        return parseGenericSpecialization(cls, "!0[]", [contained_type])
+
+    return parseClassContent(cls, entry, contained_type.split('.') + [f"Array{index_count}"])
 
 
 def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_params: List[str]):
@@ -297,19 +298,15 @@ def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_par
 
 def tryParseGeneric(cls: Class, entry: Dict):
     name_hierarchy = entry.get('name_hierarchy') or []
-    if "generic_arg_types" in entry:
-        base_name = '.'.join(name_hierarchy)
+    if entry["is_generic_type"]:
         generic_types: List[str] = [g["type"]
                                     for g in entry["generic_arg_types"]]
-        if any(t != "unknown" for t in generic_types):
-            parent_name = f'{base_name}<{","* (len(generic_types)-1)}>'
-            if parent_name in dump:
-                return parseGenericSpecialization(cls, parent_name, generic_types)
-            else:
-                parsed_types[cls.name] = parsed_types["Any"]
-                return parsed_types["Any"]
-        cls.generic_count = len(generic_types)
-        return parseClassContent(cls, entry, name_hierarchy)
+        if entry["is_generic_type_definition"]:
+            cls.generic_count = len(generic_types)
+            return parseClassContent(cls, entry, name_hierarchy)
+        else:
+            parent_name = entry["generic_type_definition"]
+            return parseGenericSpecialization(cls, parent_name, generic_types)
     return None
 
 
@@ -376,6 +373,8 @@ def passClass(cls: Class):
         for g in cls.parent.generic_params:
             if g == cls:
                 cls.parent = parent.parent
+                cls.fields.append(Field(cls, "Instance", static = True))
+                break
 
 
 def quote(pstr: str)-> str:
@@ -400,7 +399,7 @@ def write_method(file: IO, method: Method, in_class: bool):
     # typescript-to-lua adds an implicit self by default
     file.write("(")
     if method.static:
-        file.write("this: {}, ")
+        file.write("this: Static, ")
     for p in method.params:
         file.write(f"{p.name}: {p.type.typescript_type()}, ")
     file.write(f"): {method.ret.typescript_type()};\n")
@@ -425,7 +424,7 @@ def write_class(file: IO, class_def: Class):
             ",".join(f"G{i} = any" for i in range(
                 class_def.generic_count)) + ">"
 
-    file.write(f"interface __{class_def.local_name()}{template}")
+    file.write(f"type __{class_def.local_name()}{template} =")
     file.write("{\n")
 
     (methods, fields) = filter_members(class_def, True)
@@ -436,17 +435,18 @@ def write_class(file: IO, class_def: Class):
         write_method(file, method, True)
 
     # indexing function
-    if (any(m.name == "get_Item" for m in class_def.methods) and
-            any(m.name == "set_Item" for m in class_def.methods)):
-        get = next(m for m in class_def.methods if m.name == "get_Item")
-        if len(get.params) == 1:
-            input = get.params[0]
-            output = get.ret
-            if input.type.name in converted_types:
-                file.write(f'  [idx: {input.type.typescript_type()}]')
-                file.write(f': {output.typescript_type()},\n')
+    file.write("}")
+    if GENERAL_INDEXING:
+        if (any(m.name == "get_Item" for m in class_def.methods) and
+                any(m.name == "set_Item" for m in class_def.methods)):
+            get = next(m for m in class_def.methods if m.name == "get_Item")
+            if len(get.params) == 1:
+                input = get.params[0]
+                output = get.ret
 
-    file.write("}\n")
+                file.write(
+                    f' &  Indexed<{input.type.typescript_type()},{output.typescript_type()}>\n')
+    file.write("\n")
 
 
     
