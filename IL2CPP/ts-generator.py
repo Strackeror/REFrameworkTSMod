@@ -14,6 +14,7 @@ from types import new_class
 from typing import IO, Dict, List, Pattern, Set, Tuple
 from unicodedata import name
 
+GENERAL_INDEXING = False
 
 @dataclass
 class Field:
@@ -434,21 +435,18 @@ def write_class(file: IO, class_def: Class):
         write_method(file, method, True)
 
     # indexing function
-    if (any(m.name == "get_Item" for m in class_def.methods) and
-            any(m.name == "set_Item" for m in class_def.methods)):
-        get = next(m for m in class_def.methods if m.name == "get_Item")
-        if len(get.params) == 1:
-            input = get.params[0]
-            output = get.ret
-            if input.type.name in converted_types:
-                file.write(f'  [idx: {input.type.typescript_type()}]')
-                file.write(f': {output.typescript_type()},\n')
-            elif input.type.is_enum():
-                file.write(f'}} & {{ [idx in keyof {input.type.typescript_type()}]')
-                file.write(f': {output.typescript_type()};\n')
-                
+    file.write("}")
+    if GENERAL_INDEXING:
+        if (any(m.name == "get_Item" for m in class_def.methods) and
+                any(m.name == "set_Item" for m in class_def.methods)):
+            get = next(m for m in class_def.methods if m.name == "get_Item")
+            if len(get.params) == 1:
+                input = get.params[0]
+                output = get.ret
 
-    file.write("}\n")
+                file.write(
+                    f' &  Indexed<{input.type.typescript_type()},{output.typescript_type()}>\n')
+    file.write("\n")
 
 
     

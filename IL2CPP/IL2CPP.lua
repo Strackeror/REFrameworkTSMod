@@ -1,8 +1,6 @@
 local create_namespace
 local namespace_functions = {}
 
--- Use value array handling for arrays in reframework
-sdk.script_config().value_array_index = true
 ---@param self Namespace
 function namespace_functions.M(self)
     return self

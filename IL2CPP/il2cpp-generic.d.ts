@@ -13,6 +13,9 @@ declare type Members<T> =
 }
 
 declare type Inherit<T, Parent> = T & Omit<Parent, keyof (T)>
+declare type Indexed<Input, Output> = {
+  [K in Input as K extends string | number | symbol ? K : never]: Output;
+};
 
 // Tag type for static functions
 declare interface Static {
