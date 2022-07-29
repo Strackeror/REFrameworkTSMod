@@ -19,7 +19,7 @@ if (!player) {
             let arr = param._StatusBuffAddValue;
             for (let i = 0; i < arr.get_Length(); ++i) {
                 log.info(`${param._Id}[${i}]=${arr.get_Item(i)}`)
-                arr[i] = arr[i] * SPIRIBIRD_MULTIPLIER;
+                arr.Set(i, arr.Get(i) * SPIRIBIRD_MULTIPLIER)
             }
 
             return retval

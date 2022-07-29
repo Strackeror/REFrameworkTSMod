@@ -12,7 +12,7 @@ export function create_array(
 export function create_array(type: string, table: any[]): System.Array.Generic {
   let array = sdk.create_managed_array(type, table.length);
   for (let i = 0; i < table.length; ++i) {
-    array[i] = table[i];
+    array.Set(i, table[i])
   }
   return array;
 }

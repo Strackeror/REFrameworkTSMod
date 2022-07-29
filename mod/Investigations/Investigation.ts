@@ -145,7 +145,7 @@ sdk.hook(snow.QuestManager.M.makeQuestNoList, undefined, (retval) => {
     for (let inv of get_investigations()) {
       let new_quest_no = 942000 + i++;
       investigation_id_map[new_quest_no] = inv
-      questManager._QuestDataDictionary[new_quest_no] = inv.quest_data
+      questManager._QuestDataDictionary.Add(new_quest_no, inv.quest_data)
       update_quest_no(inv.quest_data, new_quest_no)
       list.Add(new_quest_no)
     }

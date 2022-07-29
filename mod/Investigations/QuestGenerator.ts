@@ -177,19 +177,19 @@ function can_capture(monster_data: MonsterData) {
 }
 
 function set_enemy_data(quest_enemy_data: snow.quest.NormalQuestDataForEnemy.Param, enemy_data: EnemyData, index: number) {
-  quest_enemy_data._RouteNo[index] = enemy_data["_RouteNo"]
-  quest_enemy_data._PartsTbl[index] = enemy_data["_PartsTbl"]
-  quest_enemy_data._InitSetName[index] = enemy_data["_InitSetName"]
-  quest_enemy_data._SubType[index] = enemy_data["_SubType"]
-  quest_enemy_data._VitalTbl[index] = enemy_data["_VitalTbl"]
-  quest_enemy_data._AttackTbl[index] = enemy_data["_AttackTbl"]
-  quest_enemy_data._OtherTbl[index] = enemy_data["_OtherTbl"]
-  quest_enemy_data._StaminaTbl[index] = enemy_data["_StaminaTbl"]
-  quest_enemy_data._Scale[index] = enemy_data["_Scale"]
-  quest_enemy_data._ScaleTbl[index] = enemy_data["_ScaleTbl"]
-  quest_enemy_data._Difficulty[index] = enemy_data["_Difficulty"]
-  quest_enemy_data._BossMulti[index] = enemy_data["_BossMulti"]
-  quest_enemy_data._IndividualType[index] = enemy_data["_IndividualType"]
+  quest_enemy_data._RouteNo.Set(index, enemy_data["_RouteNo"])
+  quest_enemy_data._PartsTbl.Set(index, enemy_data["_PartsTbl"])
+  quest_enemy_data._InitSetName.Set(index, enemy_data["_InitSetName"])
+  quest_enemy_data._SubType.Set(index, enemy_data["_SubType"])
+  quest_enemy_data._VitalTbl.Set(index, enemy_data["_VitalTbl"])
+  quest_enemy_data._AttackTbl.Set(index, enemy_data["_AttackTbl"])
+  quest_enemy_data._OtherTbl.Set(index, enemy_data["_OtherTbl"])
+  quest_enemy_data._StaminaTbl.Set(index, enemy_data["_StaminaTbl"])
+  quest_enemy_data._Scale.Set(index, enemy_data["_Scale"])
+  quest_enemy_data._ScaleTbl.Set(index, enemy_data["_ScaleTbl"])
+  quest_enemy_data._Difficulty.Set(index, enemy_data["_Difficulty"])
+  quest_enemy_data._BossMulti.Set(index, enemy_data["_BossMulti"])
+  quest_enemy_data._IndividualType.Set(index, enemy_data["_IndividualType"])
 }
 
 function set_quest_target(
@@ -207,18 +207,18 @@ function set_quest_target(
 
   let normal_quest_data = quest_data.get_RawNormal();
   normal_quest_data._QuestType = snow.quest.QuestType.HUNTING;
-  normal_quest_data._TargetType[0] = snow.quest.QuestTargetType.Hunting;
+  normal_quest_data._TargetType.Set(0, snow.quest.QuestTargetType.Hunting);
   if (!can_capture(monster_data)) {
     (normal_quest_data._QuestType = snow.quest.QuestType.KILL),
-      (normal_quest_data._TargetType[0] = snow.quest.QuestTargetType.Kill);
+      (normal_quest_data._TargetType.Set(0, snow.quest.QuestTargetType.Kill));
   }
 
-  normal_quest_data._TgtEmType[0] = monster_data.Id;
-  normal_quest_data._TgtNum[0] = 1;
+  normal_quest_data._TgtEmType.Set(0, monster_data.Id);
+  normal_quest_data._TgtNum.Set(0, 1);
 
-  normal_quest_data._BossEmType[0] = monster_data.Id;
-  normal_quest_data._BossSetCondition[0] = 1;
-  normal_quest_data._Icon[0] = monster_data.Icon;
+  normal_quest_data._BossEmType.Set(0, monster_data.Id);
+  normal_quest_data._BossSetCondition.Set(0, 1);
+  normal_quest_data._Icon.Set(0, monster_data.Icon);
   normal_quest_data._QuestLv = monster_data.QuestLevel;
 
   let enemy_quest_data = quest_data.get_RawEnemy();
@@ -239,8 +239,8 @@ function set_extra(
   let normal = quest_data.get_RawNormal();
   normal._InitExtraEmNum += 1;
 
-  normal._BossEmType[index] = monster_id;
-  normal._BossSetCondition[index] = 1;
+  normal._BossEmType.Set(index, monster_id);
+  normal._BossSetCondition.Set(index, 1);
 
   let enemy_quest_data = quest_data.get_RawEnemy();
   let enemy_data = monster_data.EnemyDataList["0"][0]
