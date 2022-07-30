@@ -202,7 +202,8 @@ def parseMethods(cls: Class, cls_entry: Dict):
     methods = set()
     if "methods" not in cls_entry:
         return
-    for name, entry in cls_entry["methods"].items():
+    sorted_items = sorted(cls_entry["methods"].items(), key=lambda pair: pair[1]["id"])
+    for name, entry in sorted_items:
         if entry["function"] == "0" and "ContainsGenericParameters" not in (entry.get("impl_flags") or ""):
             continue
         new_method = parseMethod(name, entry, methods)
