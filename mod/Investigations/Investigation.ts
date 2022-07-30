@@ -27,7 +27,7 @@ let investigation_id_map: {
 } = {};
 
 function get_investigations(): Investigation[] {
-  const current_name = snow.SnowSaveService.M.Instance?.getCurrentHunterName();
+  const current_name = snow.SnowSaveService.Instance?.getCurrentHunterName();
   if (!current_name) {
     return [];
   }
@@ -45,7 +45,7 @@ function get_investigations(): Investigation[] {
 }
 
 function save_investigations() {
-  const current_name = snow.SnowSaveService.M.Instance?.getCurrentHunterName();
+  const current_name = snow.SnowSaveService.Instance?.getCurrentHunterName();
   if (!current_name) {
     return;
   }
@@ -57,7 +57,7 @@ function save_investigations() {
 
 function get_player_name(): string {
   return (
-    snow.SnowSaveService.M.Instance?.getCurrentHunterName() ?? "__Unknown__"
+    snow.SnowSaveService.Instance?.getCurrentHunterName() ?? "__Unknown__"
   );
 }
 
@@ -115,16 +115,15 @@ sdk.hook(snow.QuestManager.M.questEnemyDie, ([_, self, mon]) => {
     return;
   }
 
-  snow.gui.ChatManager.M.Instance?.reqAddChatBossIconInfo(monster_id, "New investigation", false, false)
+  snow.gui.ChatManager.Instance?.reqAddChatBossIconInfo(monster_id, "New investigation", false, false)
   inv.quest_data = (generate_quest_data(inv) as REManagedObject<snow.quest.QuestData>).add_ref()
   get_investigations().push(inv)
   save_investigations()
 });
 
 sdk.hook(snow.QuestManager.M.makeQuestNoList, undefined, (retval) => {
-  let questCounter =
-    snow.gui.fsm.questcounter.GuiQuestCounterFsmManager.M.Instance;
-  let questManager = snow.QuestManager.M.Instance;
+  let questCounter = QCF.Instance;
+  let questManager = snow.QuestManager.Instance;
 
   if (!questCounter || !questManager) {
     return retval
