@@ -1,7 +1,9 @@
-[
-    "snow.data",
-    "snow.player",
-    "snow.quest",
-    "snow.QuestManager",
-    "snow.SnowSingleton"
-]
+{
+    "namespace_tree_filter": [
+        "snow",
+        "System"
+    ],
+    "type_map_filter": [
+        "snow.SnowSingleton"
+    ]
+}
