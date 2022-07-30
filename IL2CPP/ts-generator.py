@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from pprint import pprint
 from string import ascii_letters, digits
 from types import new_class
-from typing import IO, Dict, List, Pattern, Set, Tuple
+from typing import IO, Dict, List, Pattern, Set, Tuple, TypedDict
 from unicodedata import name
 
 GENERAL_INDEXING = False
@@ -52,8 +52,12 @@ class Class:
         return f"{self.name}"
 
     def typescript_type(self):
+        if self.name in converted_types:
+            return converted_types[self.name]
         if self.generic_parent:
-            template = f'<{",".join([c.typescript_type() for c in self.generic_params])}>'
+            template = ""
+            if not self.generic_parent.is_enum():
+                template = f'<{",".join([c.typescript_type() for c in self.generic_params])}>'
             ret = self.generic_parent.typescript_type() + template
         else:
             ret = ".".join(self.namespaces)
@@ -71,7 +75,16 @@ class Class:
 
 os.chdir(os.path.dirname(__file__))
 
-filters: List[Pattern] = [re.compile(s) for s in (json.load(open("type-filters.json")))]
+
+FilterType = TypedDict(
+    '', {'namespace_tree_filter': List[str], 'type_map_filter': List[str]})
+
+type_filters: FilterType = json.load(open("type-filters.json"))
+namespace_tree_filters = [
+    re.compile(s) for s in (type_filters["namespace_tree_filter"])]
+type_map_filters = [
+    re.compile(s) for s in type_filters["type_map_filter"]]
+
 dump: Dict[str, Dict] = json.load(open("il2cpp_dump.json", encoding="utf-8"))
 
 print("json loaded")
@@ -104,12 +117,12 @@ converted_types = {
     "System.Boolean": "boolean",
     "System.String": "string",
     "System.Void": "void",
-    "Any": "any",
-    "unknown": "unknown",
 }
 
-for k, t in converted_types.items():
-    parsed_types[k] = Class(name=k, namespaces=[t])
+parsed_types = {
+    "Any": Class(name="Any", namespaces=["any"]),
+    "unknown": Class(name="unknown", namespaces=["unknown"])
+}
 
 @dataclass
 class NamespaceTree():
@@ -131,7 +144,7 @@ typescript_keyword = ["break", "case", "catch",
                       "try", "typeOf", "var",
                       "void", "while", "with"]
 
-def nameInFilter(str: str) -> bool:
+def nameInFilter(str: str, filters: List[Pattern[str]]) -> bool:
     if not filters:
         return True
     if any(re.match(f, str) for f in filters): 
@@ -202,7 +215,8 @@ def parseMethods(cls: Class, cls_entry: Dict):
     methods = set()
     if "methods" not in cls_entry:
         return
-    for name, entry in cls_entry["methods"].items():
+    sorted_items = sorted(cls_entry["methods"].items(), key=lambda pair: pair[1]["id"])
+    for name, entry in sorted_items:
         if entry["function"] == "0" and "ContainsGenericParameters" not in (entry.get("impl_flags") or ""):
             continue
         new_method = parseMethod(name, entry, methods)
@@ -298,7 +312,7 @@ def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_par
 
 def tryParseGeneric(cls: Class, entry: Dict):
     name_hierarchy = entry.get('name_hierarchy') or []
-    if entry["is_generic_type"]:
+    if entry.get("is_generic_type"):
         generic_types: List[str] = [g["type"]
                                     for g in entry["generic_arg_types"]]
         if entry["is_generic_type_definition"]:
@@ -342,7 +356,11 @@ def parseClass(name: str, force: bool = False) -> Class:
         print("Error finding type", name)
         return parsed_types["Any"]
 
+
     entry = dump[name]
+    if "id" not in entry:
+        return parsed_types["Any"]
+
     if cls := tryParseTemplateParam(name, entry):
         parsed_types[name] = cls
         return cls
@@ -354,6 +372,9 @@ def parseClass(name: str, force: bool = False) -> Class:
     new_class = Class()
     new_class.name = name
     parsed_types[name] = new_class
+    
+    if cls := tryParseGeneric(new_class, entry):
+        return cls
 
     if cls := tryParseEnum(new_class, entry):
         return cls
@@ -361,8 +382,6 @@ def parseClass(name: str, force: bool = False) -> Class:
     if cls := tryParseArray(new_class, entry):
         return cls
 
-    if cls := tryParseGeneric(new_class, entry):
-        return cls
 
     return parseClassContent(new_class, entry) or parsed_types["Any"]
 
@@ -443,7 +462,6 @@ def write_class(file: IO, class_def: Class):
             if len(get.params) == 1:
                 input = get.params[0]
                 output = get.ret
-
                 file.write(
                     f' &  Indexed<{input.type.typescript_type()},{output.typescript_type()}>\n')
     file.write("\n")
@@ -519,10 +537,10 @@ def write_type_map(file: IO):
     top_types: Set[str] = set()
     type_map_text = ""
     for name, cls in parsed_types.items():
-        if nameInFilter(name):
+        if nameInFilter(name, type_map_filters):
             if cls.namespaces and cls.namespaces[0] in namespace_tree.nodes:
                 top_types.add(cls.namespaces[0])
-            type_map_text += (f' "{name}": {cls.typescript_type()},\n')    
+            type_map_text += (f' "{name}": {cls.typescript_type()},\n')
             
     for i in range(10):
         file.write(f"export type G{i} = any;\n")
@@ -539,7 +557,7 @@ def write_type_map(file: IO):
 
 count = 0
 for typename in dump:
-    if nameInFilter(typename):
+    if nameInFilter(typename, namespace_tree_filters):
         count += 1
         parseClass(typename)
 
