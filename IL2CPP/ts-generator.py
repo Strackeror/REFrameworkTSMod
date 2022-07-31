@@ -13,6 +13,7 @@ from string import ascii_letters, digits
 from types import new_class
 from typing import IO, Dict, List, Pattern, Set, Tuple, TypedDict
 from unicodedata import name
+from xmlrpc.client import Boolean
 
 GENERAL_INDEXING = False
 
@@ -38,7 +39,9 @@ class Method:
 @dataclass
 class Class:
     parent: Class | None = None
+    underlying_type: str = ""
     name: str = ""
+    index: int = 0
     namespaces: List[str] = field(default_factory=list)
     methods: List[Method] = field(default_factory=list)
     fields: List[Field] = field(default_factory=list)
@@ -51,19 +54,34 @@ class Class:
     def __repr__(self):
         return f"{self.name}"
 
-    def typescript_type(self):
-        if self.name in converted_types:
-            return converted_types[self.name]
+    def typescript_type(self, as_param = False):
+        if self.underlying_type:
+            return self.underlying_type
         if self.generic_parent:
             template = ""
-            if not self.generic_parent.is_enum():
+            if not self.generic_parent.is_enum() and not as_param:
                 template = f'<{",".join([c.typescript_type() for c in self.generic_params])}>'
-            ret = self.generic_parent.typescript_type() + template
+            ret = self.generic_parent.typescript_type(as_param) + template
         else:
             ret = ".".join(self.namespaces)
+            if as_param:
+                ret += ".P"
         return ret
 
+    def template(self, defaults: bool) -> str:
+        if not self.generic_count:
+            return ""
+        if self.is_enum():
+            return ""
+        if defaults:
+            return "<" + ",".join(f"G{i} = any" for i in range(
+                    self.generic_count)) + ">"
+        return "<" + ",".join(f"G{i}" for i in range(self.generic_count)) + ">"
+
+
     def local_name(self):
+        if self.underlying_type:
+            return self.underlying_type
         return self.namespaces[-1]
     
 
@@ -120,12 +138,13 @@ converted_types = {
 }
 
 parsed_types = {
-    "Any": Class(name="Any", namespaces=["any"]),
-    "unknown": Class(name="unknown", namespaces=["unknown"])
+    "Any": Class(name="Any", underlying_type="any"),
+    "unknown": Class(name="unknown", underlying_type="unknown")
 }
 
 @dataclass
 class NamespaceTree():
+    name: str = ""
     nodes: Dict[str, NamespaceTree] = field(default_factory=lambda: defaultdict(NamespaceTree))
     cls: Class | None = None
 
@@ -245,8 +264,10 @@ def makeNamespace(cls: Class, name_hierarchy: List[str]):
     tree_cursor = namespace_tree
     for k in cls.namespaces:
         tree_cursor = tree_cursor.nodes[k]
+        tree_cursor.name = k
     if tree_cursor.cls:
-        print("Error: duplicate namespace position ", cls.name, " and ", tree_cursor.cls.name)
+        print("Error: duplicate namespace position ", cls.name,
+              " and ", tree_cursor.cls.name, "at", cls.namespaces)
     else:
         tree_cursor.cls = cls
         
@@ -256,13 +277,14 @@ def parseEnum(cls: Class, entry):
     makeNamespace(cls, entry["name_hierarchy"] or [])
 
     cls.parent = parseClass("System.Enum", True)
+    cls.underlying_type = "number"
     parseFields(cls, entry)
     return cls
 
 
 def tryParseTemplateParam(name: str, entry: Dict):
     if groups := re.fullmatch(r"!(\d+)", name):
-        new_class = Class(name=name, namespaces=[f"G{groups[1]}"])
+        new_class = Class(name=name, underlying_type=f"G{groups[1]}")
         return new_class
     if re.fullmatch(r"!!+\d+", name):
         return parsed_types["Any"]
@@ -307,6 +329,7 @@ def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_par
 
     cls.generic_params = [parseClass(n) for n in generic_params]
     cls.namespaces = cls.generic_parent.namespaces
+    cls.underlying_type = cls.generic_parent.underlying_type
     return cls
 
 
@@ -317,7 +340,7 @@ def tryParseGeneric(cls: Class, entry: Dict):
                                     for g in entry["generic_arg_types"]]
         if entry["is_generic_type_definition"]:
             cls.generic_count = len(generic_types)
-            return parseClassContent(cls, entry, name_hierarchy)
+            return None
         else:
             parent_name = entry["generic_type_definition"]
             return parseGenericSpecialization(cls, parent_name, generic_types)
@@ -371,8 +394,12 @@ def parseClass(name: str, force: bool = False) -> Class:
 
     new_class = Class()
     new_class.name = name
+    new_class.index = entry["id"]
+    if name in converted_types:
+        new_class.underlying_type = converted_types[name]
+
     parsed_types[name] = new_class
-    
+
     if cls := tryParseGeneric(new_class, entry):
         return cls
 
@@ -402,59 +429,47 @@ def quote(pstr: str)-> str:
     return '"' + pstr + '"'
 
 
-def write_field(file: IO, field: Field, in_class: bool):
-    if in_class:
-        file.write(f'  {quote(field.name)}: {field.type.typescript_type()},\n')
-    else:
-        file.write(f'  let {make_valid_symbol(field.name)}: {field.type.typescript_type()}\n')
+def write_field(file: IO, field: Field):
+    file.write(f'  get {quote(field.name)}(): {field.type.typescript_type()}; '
+        f'set {quote(field.name)}(p: {field.type.typescript_type(True)});\n')
 
-def write_method(file: IO, method: Method, in_class: bool):
+def write_method(file: IO, method: Method):
     name = method.name
-    if in_class:
-        file.write(f" {quote(name)}")
-    else:
-        file.write(f"  function {make_valid_symbol(name)} ")
+    file.write(f" {quote(name)}")
   
     # typescript-to-lua adds an implicit self by default
     file.write("(")
     if method.static:
         file.write("this: Static, ")
     for p in method.params:
-        file.write(f"{p.name}: {p.type.typescript_type()}, ")
+        file.write(f"{p.name}: {p.type.typescript_type(True)}, ")
     file.write(f"): {method.ret.typescript_type()};\n")
 
-def filter_members(cls: Class, in_class: bool) -> Tuple[List[Method], List[Field]]:
-    go_in_class = lambda t: not t.static or not valid_symbol(t.name)
-    if cls.generic_count:
-        if in_class:
-            return (cls.methods, cls.fields)
-        else:
-            return ([], [])
-    return ([m for m in cls.methods if go_in_class(m) == in_class], [f for f in cls.fields if go_in_class(f) == in_class])
+def filter_members(cls: Class, static: bool) -> Tuple[List[Method], List[Field]]:
+    is_static = lambda t: t.static == static
+    return ([m for m in cls.methods if is_static(m)], [f for f in cls.fields if is_static(f)])
     
 
 def write_class(file: IO, class_def: Class):
-    template = ""
-    template_full = ""
-    if class_def.generic_count:
-        template = "<" + \
-            ",".join(f"G{i}" for i in range(class_def.generic_count)) + ">"
-        template_full = "<" + \
-            ",".join(f"G{i} = any" for i in range(
-                class_def.generic_count)) + ">"
 
-    file.write(f"type __{class_def.local_name()}{template} =")
-    file.write("{\n")
+    template = class_def.template(False)
+    template_full = class_def.template(True)
 
-    (methods, fields) = filter_members(class_def, True)
+    parent_id_list = [class_def.index]
+    cur_parent = class_def.parent
+    while cur_parent:
+        parent_id_list.insert(0, cur_parent.index)
+        cur_parent = cur_parent.parent
+    file.write(f"type P = TypeId<{class_def.typescript_type()},[{','.join(str(id) for id in parent_id_list)}]>\n")
+
+    file.write(f"interface __Members{template} extends P{{\n")
+    (methods, fields) = filter_members(class_def, static=False)
     for f in fields:
-        write_field(file, f, True)
-
+        write_field(file, f)
     for method in methods:
-        write_method(file, method, True)
-
+        write_method(file, method)
+        
     # indexing function
-    file.write("}")
     if GENERAL_INDEXING:
         if (any(m.name == "get_Item" for m in class_def.methods) and
                 any(m.name == "set_Item" for m in class_def.methods)):
@@ -464,70 +479,80 @@ def write_class(file: IO, class_def: Class):
                 output = get.ret
                 file.write(
                     f' &  Indexed<{input.type.typescript_type()},{output.typescript_type()}>\n')
-    file.write("\n")
+    file.write("}\n")
 
-
-    
-    lname = class_def.local_name()
     parent = "void"
     if class_def.parent:
         parent = class_def.parent.typescript_type()
     if class_def.generic_count:
         file.write(
-            f"type {lname}{template_full} = Inherit<__{lname}{template}, {parent}>\n")
+            f"type T{template_full} = Inherit<__Members{template}, {parent}>\n")
     else:
         file.write(
-            f"interface {lname} extends Inherit<__{lname}, {parent}> {{}}\n")
+            f"interface T extends Inherit<__Members, {parent}> {{}}\n")
 
-def write_class_namespace(file: IO, cls: Class):
-    # static stuff in a namespace
-
-    (methods, fields) = filter_members(cls, False)
+    file.write(f"type __Static{template_full} = Members<__Members{template}, T{template}> & {{\n")
+    (methods, fields) = filter_members(class_def, static=True)
     for f in fields:
-        write_field(file, f, False)
-
+        write_field(file, f)
     for method in methods:
-        write_method(file, method, False)
-
-    file.write(f"  let M: Members<{cls.local_name()}>\n")
-
+        write_method(file, method)
+    file.write("}\n")
 
 
 def write_enum(file: IO, class_def: Class):
-    file.write(f"enum {class_def.local_name()} {{\n")
+    file.write(f"interface __Static {{\n")
     for f in class_def.fields:
         if f.default != None:
             if isinstance(f.default, int):
-                file.write(f"  {f.name} = {f.default},\n")
+                file.write(f"  {f.name}: {f.default},\n")
             else:
-                file.write(f'  {f.name} = "{f.default}",\n')
+                file.write(f'  {f.name}: "{f.default}",\n')
     file.write("}\n")
+    file.write(f"type T = __Static[keyof __Static]\n")
+    file.write(f"type P = {class_def.underlying_type}\n")
 
 
 written_count = 0
 
 
-def write_tree(file: IO, name: str, tree_cursor: NamespaceTree, prev_name=""):
+def write_tree(file: IO, tree_cursor: NamespaceTree, parent_cursor: NamespaceTree | None):
+    name = tree_cursor.name
 
-    if tree_cursor.cls:
-        if name and not prev_name:
-            file.write("export declare ")
+    if parent_cursor and tree_cursor.cls:
+        if not parent_cursor.name:
+            file.write(f"export declare ")
+        if tree_cursor.cls.is_enum():
+            file.write(f"type {name} = {name}.T\n")
+        else:
+            file.write(
+                f"interface {name}{tree_cursor.cls.template(True)} extends {name}.T{tree_cursor.cls.template(False)} {{}}\n")
+    
+    if parent_cursor and parent_cursor.name:
+        file.write(f"interface __NS {{")
+        file.write(f"{name}: {name}.__NS")
+        file.write("}\n")
+
+    if parent_cursor and not parent_cursor.name:
+        file.write(f"export declare let {name}: {name}.__NS\n")
+
+
+    if name:
+        if parent_cursor and not parent_cursor.name:
+            file.write(f"export declare ")
+        file.write(f"namespace {name} {{\n")
         
+
+        
+    if tree_cursor.cls:
+        file.write(f"interface __NS extends __Static {{}}\n")
         if tree_cursor.cls.is_enum():
             write_enum(file, tree_cursor.cls)
         else:
             write_class(file, tree_cursor.cls)
 
-    if name:
-        if not prev_name:
-            file.write(f"export declare ")
-        file.write(f"namespace {name} {{\n")
-        
-    if tree_cursor.cls and not tree_cursor.cls.is_enum():
-        write_class_namespace(file, tree_cursor.cls)
-
     for node in sorted(tree_cursor.nodes):
-        write_tree(file, node, tree_cursor.nodes[node], name)
+        write_tree(file, tree_cursor.nodes[node], tree_cursor)
 
     if name:
         file.write("}\n")
@@ -573,7 +598,7 @@ print("second pass done")
 file = open("IL2CPP.d.ts", 'w', encoding='utf-8')
 for i in range(10):
     file.write(f"export type G{i} = any;\n")
-write_tree(file, "", namespace_tree)
+write_tree(file, namespace_tree, None)
 print("namespace tree written")
 
 file = open("typemap.d.ts", 'w', encoding='utf-8')

@@ -42,7 +42,10 @@ declare type REManagedObject<T> = {
 
 declare type Ptr<T = any> = {}
 
-type PtrTuple<T> = {[K in keyof T]: Ptr<T[K]>}
+type PtrTuple<T> = {
+  [K in keyof T]: T[K] extends TypeId<infer U, any> ? Ptr<U> : Ptr<T[K]>;
+};
+
 type First2Elements<T> =
   T extends [] ? [] :
   T extends [infer E1] ? [E1] :
