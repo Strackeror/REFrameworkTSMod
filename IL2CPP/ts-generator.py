@@ -430,12 +430,12 @@ def quote(pstr: str)-> str:
 
 
 def write_field(file: IO, field: Field):
-    file.write(f'  get {quote(field.name)}(): {field.type.typescript_type()}; '
+    file.write(f'    get {quote(field.name)}(): {field.type.typescript_type()}; '
         f'set {quote(field.name)}(p: {field.type.typescript_type(True)});\n')
 
 def write_method(file: IO, method: Method):
     name = method.name
-    file.write(f" {quote(name)}")
+    file.write(f"    {quote(name)}")
   
     # typescript-to-lua adds an implicit self by default
     file.write("(")
@@ -460,9 +460,9 @@ def write_class(file: IO, class_def: Class):
     while cur_parent:
         parent_id_list.insert(0, cur_parent.index)
         cur_parent = cur_parent.parent
-    file.write(f"type P = TypeId<{class_def.typescript_type()},[{','.join(str(id) for id in parent_id_list)}]>\n")
 
-    file.write(f"interface __Members{template} extends P{{\n")
+    # Members section
+    file.write(f"  interface __Members{template} extends P{{\n")
     (methods, fields) = filter_members(class_def, static=False)
     for f in fields:
         write_field(file, f)
@@ -479,25 +479,34 @@ def write_class(file: IO, class_def: Class):
                 output = get.ret
                 file.write(
                     f' &  Indexed<{input.type.typescript_type()},{output.typescript_type()}>\n')
-    file.write("}\n")
-
-    parent = "void"
-    if class_def.parent:
-        parent = class_def.parent.typescript_type()
-    if class_def.generic_count:
-        file.write(
-            f"type T{template_full} = Inherit<__Members{template}, {parent}>\n")
-    else:
-        file.write(
-            f"interface T extends Inherit<__Members, {parent}> {{}}\n")
-
-    file.write(f"type __Static{template_full} = Members<__Members{template}, T{template}> & {{\n")
+    file.write("  }\n")
+    
+    # static section
+    file.write(f"  type __Static{template_full} = Members<__Members{template}, T{template}> & {{\n")
     (methods, fields) = filter_members(class_def, static=True)
     for f in fields:
         write_field(file, f)
     for method in methods:
         write_method(file, method)
-    file.write("}\n")
+    file.write("  }\n")
+    file.write("\n")
+    
+
+    # Intermediate type sections
+    parent = "void"
+    if class_def.parent:
+        parent = class_def.parent.typescript_type()
+    if class_def.generic_count:
+        file.write(
+            f"  type T{template_full} = Inherit<__Members{template}, {parent}>\n")
+    else:
+        file.write(
+            f"  interface T extends Inherit<__Members, {parent}> {{}}\n")
+
+
+    file.write(f"  type P = TypeId<{class_def.typescript_type()},[{','.join(str(id) for id in parent_id_list)}]>;\n")
+    
+
 
 
 def write_enum(file: IO, class_def: Class):
@@ -509,7 +518,7 @@ def write_enum(file: IO, class_def: Class):
             else:
                 file.write(f'  {f.name}: "{f.default}",\n')
     file.write("}\n")
-    file.write(f"type T = __Static[keyof __Static]\n")
+    file.write(f"type T = __Static[keyof __Static]; ")
     file.write(f"type P = {class_def.underlying_type}\n")
 
 
@@ -537,6 +546,7 @@ def write_tree(file: IO, tree_cursor: NamespaceTree, parent_cursor: NamespaceTre
         file.write(f"export declare let {name}: {name}.__NS\n")
 
 
+
     if name:
         if parent_cursor and not parent_cursor.name:
             file.write(f"export declare ")
@@ -545,17 +555,17 @@ def write_tree(file: IO, tree_cursor: NamespaceTree, parent_cursor: NamespaceTre
 
         
     if tree_cursor.cls:
-        file.write(f"interface __NS extends __Static {{}}\n")
         if tree_cursor.cls.is_enum():
             write_enum(file, tree_cursor.cls)
         else:
             write_class(file, tree_cursor.cls)
+        file.write(f"  interface __NS extends __Static {{}}\n\n")
 
     for node in sorted(tree_cursor.nodes):
         write_tree(file, tree_cursor.nodes[node], tree_cursor)
 
     if name:
-        file.write("}\n")
+        file.write("}\n\n\n")
 
 
 def write_type_map(file: IO):
