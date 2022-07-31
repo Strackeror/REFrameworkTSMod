@@ -430,8 +430,11 @@ def quote(pstr: str)-> str:
 
 
 def write_field(file: IO, field: Field):
-    file.write(f'    get {quote(field.name)}(): {field.type.typescript_type()}; '
-        f'set {quote(field.name)}(p: {field.type.typescript_type(True)});\n')
+    if field.type.underlying_type:
+        file.write(f'    {quote(field.name)}: {field.type.typescript_type()};\n')
+    else:
+        file.write(f'    get {quote(field.name)}(): {field.type.typescript_type()}; '
+            f'set {quote(field.name)}(p: {field.type.typescript_type(True)});\n')
 
 def write_method(file: IO, method: Method):
     name = method.name
@@ -529,22 +532,16 @@ def write_tree(file: IO, tree_cursor: NamespaceTree, parent_cursor: NamespaceTre
     name = tree_cursor.name
 
     if parent_cursor and tree_cursor.cls:
+        file.write(f"\n// {tree_cursor.cls.name}\n")
         if not parent_cursor.name:
             file.write(f"export declare ")
+        
         if tree_cursor.cls.is_enum():
             file.write(f"type {name} = {name}.T\n")
         else:
             file.write(
                 f"interface {name}{tree_cursor.cls.template(True)} extends {name}.T{tree_cursor.cls.template(False)} {{}}\n")
     
-    if parent_cursor and parent_cursor.name:
-        file.write(f"interface __NS {{")
-        file.write(f"{name}: {name}.__NS")
-        file.write("}\n")
-
-    if parent_cursor and not parent_cursor.name:
-        file.write(f"export declare let {name}: {name}.__NS\n")
-
 
 
     if name:
@@ -559,14 +556,29 @@ def write_tree(file: IO, tree_cursor: NamespaceTree, parent_cursor: NamespaceTre
             write_enum(file, tree_cursor.cls)
         else:
             write_class(file, tree_cursor.cls)
-        file.write(f"  interface __NS extends __Static {{}}\n\n")
 
     for node in sorted(tree_cursor.nodes):
         write_tree(file, tree_cursor.nodes[node], tree_cursor)
 
     if name:
-        file.write("}\n\n\n")
+        file.write("}\n")
 
+
+def write_ns_tree(file: IO, tree: NamespaceTree, export: bool):
+    name = tree.name
+    if tree.name:
+        if export:
+            file.write(f"export declare let ")
+        file.write(f"{name}: ")
+        if tree.cls:
+            file.write(f"{'.'.join(tree.cls.namespaces)}.__Static & ")
+        file.write("{")
+
+    for node in tree.nodes:
+        write_ns_tree(file, tree.nodes[node], tree.name == "")
+
+    if tree.name:
+        file.write("};\n")
 
 def write_type_map(file: IO):
     top_types: Set[str] = set()
@@ -609,7 +621,9 @@ file = open("IL2CPP.d.ts", 'w', encoding='utf-8')
 for i in range(10):
     file.write(f"export type G{i} = any;\n")
 write_tree(file, namespace_tree, None)
-print("namespace tree written")
+print("class tree written")
+
+write_ns_tree(file, namespace_tree, False)
 
 file = open("typemap.d.ts", 'w', encoding='utf-8')
 write_type_map(file)
