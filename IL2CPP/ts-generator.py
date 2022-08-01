@@ -442,8 +442,6 @@ def write_method(file: IO, method: Method):
   
     # typescript-to-lua adds an implicit self by default
     file.write("(")
-    if method.static:
-        file.write("this: Static, ")
     for p in method.params:
         file.write(f"{p.name}: {p.type.typescript_type(True)}, ")
     file.write(f"): {method.ret.typescript_type()};\n")
