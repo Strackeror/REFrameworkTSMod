@@ -59,8 +59,8 @@ class Class:
             return self.underlying_type
         if self.generic_parent:
             template = ""
-            if not self.generic_parent.is_enum() and not as_param:
-                template = f'<{",".join([c.typescript_type() for c in self.generic_params])}>'
+            if not self.generic_parent.is_enum():
+                template = f'<{",".join([c.typescript_type(as_param) for c in self.generic_params])}>'
             ret = self.generic_parent.typescript_type(as_param) + template
         else:
             ret = ".".join(self.namespaces)
@@ -463,7 +463,8 @@ def write_class(file: IO, class_def: Class):
         cur_parent = cur_parent.parent
 
     # Members section
-    file.write(f"  interface __Members{template} extends P{{\n")
+
+    file.write(f"  interface __Members{template} extends P {{\n")
     (methods, fields) = filter_members(class_def, static=False)
     for f in fields:
         write_field(file, f)
@@ -504,9 +505,9 @@ def write_class(file: IO, class_def: Class):
         file.write(
             f"  interface T extends Inherit<__Members, {parent}> {{}}\n")
 
+    file.write(
+        f"  type P{template_full} = TypeId<{class_def.typescript_type()},[{','.join(str(id) for id in parent_id_list)}]>;\n")
 
-    file.write(f"  type P = TypeId<{class_def.typescript_type()},[{','.join(str(id) for id in parent_id_list)}]>;\n")
-    
 
 
 
