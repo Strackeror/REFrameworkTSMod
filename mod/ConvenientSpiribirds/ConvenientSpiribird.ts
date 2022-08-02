@@ -30,7 +30,7 @@ if (!player) {
 let next_stamina_max = 0.0
 let next_player: snow.player.PlayerQuestBase;
 sdk.hook(
-  snow.player.PlayerQuestBase.M.calcLvBuffStamina,
+  snow.player.PlayerQuestBase.calcLvBuffStamina,
   ([_1, self, cnt]) => {
     let player = sdk.to_managed_object(self);
     let count = sdk.to_int64(cnt);

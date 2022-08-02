@@ -4,3 +4,4 @@ typemap.d.ts
 **/dist/*/*
 node_modules/
 output/
+/dist

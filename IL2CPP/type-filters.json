@@ -1,8 +1,11 @@
 {
     "namespace_tree_filter": [
-        "snow.Snow"
+        "snow.Snow",
+        "snow.gui.StmGui",
+        "snow.gui.Snow"
     ],
     "type_map_filter": [
-        "snow.SnowSingleton"
+        "snow.SnowSingleton",
+        "snow.quest\\."
     ]
 }

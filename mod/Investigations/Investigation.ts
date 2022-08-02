@@ -38,7 +38,7 @@ function get_investigations(): Investigation[] {
   current_investigation_data.investigations =
     json.load_file(`Investigations/${current_name}.json`) ?? [];
   for (let inv of current_investigation_data.investigations) {
-    inv.quest_data = (generate_quest_data(inv) as REManagedObject<snow.quest.QuestData>).add_ref()
+    inv.quest_data = generate_quest_data(inv).add_ref()
   }
   current_investigation_data.current_player = current_name
   return current_investigation_data.investigations;
@@ -63,7 +63,7 @@ function get_player_name(): string {
 
 let next_returned_text: string | undefined = undefined
 sdk.hook(
-  snow.quest.QuestData.M.getQuestTextCore,
+  snow.quest.QuestData.getQuestTextCore,
   (args) => {
     let self = sdk.to_managed_object(args[1])
     let quest_text: snow.quest.QuestText = sdk.to_int64(args[2])
@@ -100,7 +100,7 @@ sdk.hook(
   }
 )
 
-sdk.hook(snow.QuestManager.M.questEnemyDie, ([_, self, mon]) => {
+sdk.hook(snow.QuestManager.questEnemyDie, ([_, self, mon]) => {
   let quest_mgr = sdk.to_managed_object(self);
 
   if (quest_mgr.getQuestRank_Lv() != snow.QuestManager.QuestRank.Master) {
@@ -116,12 +116,12 @@ sdk.hook(snow.QuestManager.M.questEnemyDie, ([_, self, mon]) => {
   }
 
   snow.gui.ChatManager.Instance?.reqAddChatBossIconInfo(monster_id, "New investigation", false, false)
-  inv.quest_data = (generate_quest_data(inv) as REManagedObject<snow.quest.QuestData>).add_ref()
+  inv.quest_data = generate_quest_data(inv).add_ref()
   get_investigations().push(inv)
   save_investigations()
 });
 
-sdk.hook(snow.QuestManager.M.makeQuestNoList, undefined, (retval) => {
+sdk.hook(snow.QuestManager.makeQuestNoList, undefined, (retval) => {
   let questCounter = QCF.Instance;
   let questManager = snow.QuestManager.Instance;
 
