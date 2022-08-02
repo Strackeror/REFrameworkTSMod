@@ -7,41 +7,39 @@ type Func = (...args: any[]) => any;
 declare type TypeName = keyof TypeMap;
 declare type REType<T extends TypeName> = TypeMap[T];
 
-declare interface REMethodDefinition<
-  T,
-  Name extends keyof T,
-  F extends Func = T[Name] extends Func ? T[Name] : never
-> {
+declare interface REMethodDefinition<T, F extends Func> {
   (self: T, ...args: Parameters<F>): ReturnType<F>;
   call(self: T, ...args: Parameters<F>): ReturnType<F>;
   get_declaring_type(): RETypeDefinition<T>;
 }
 
-declare interface REField<T, Name extends keyof T> {
+declare interface REField<T, Type> {
   get_offset(): number;
-  get_name(): Name;
-  get_type(): RETypeDefinition<T[Name]>;
+  get_name(): string;
+  get_type(): RETypeDefinition<Type>;
   get_declaring_type(): RETypeDefinition<T>;
 }
 
 declare interface RETypeDefinition<T> {
-  create_instance(simplify: boolean): REManagedObject<T>;
+  create_instance(simplify: boolean): T;
   get_full_name(): string;
   get_name(): string;
-  get_method<Name extends keyof T>(name: Name): REMethodDefinition<T, Name>;
-  get_field<Name extends keyof T>(name: Name): REField<T, Name>
+  get_method<Name extends keyof T>(
+    name: Name
+  ): REMethodDefinition<T, T[Name] extends Func ? T[Name] : Func>;
+  get_field<Name extends keyof T>(name: Name): REField<T, T[Name]>;
 }
 
-declare type REManagedObject<T> = {
-  add_ref: () => REManagedObject<T>;
+declare interface REManagedObject {
+  add_ref: () => this;
   release: () => void;
   force_release: () => void;
-  get_type_definition: () => RETypeDefinition<T>;
-  call<N extends keyof T, F extends Func = T[N] extends Func ? T[N] : never>(
+  get_type_definition: () => RETypeDefinition<this>;
+  call<N extends keyof this, F extends Func = this[N] extends Func ? this[N] : never>(
     name: N,
     ...args: Parameters<F>
   ): ReturnType<F>;
-} & T;
+}
 
 declare type Ptr<T = any> = {};
 
@@ -69,22 +67,18 @@ type HookFuncAfter<F extends Func> = (
 /** @noSelf */
 declare namespace sdk {
   function get_tdb_version(): number;
-  function get_managed_singleton<T extends keyof TypeMap>(
-    name: T
-  ): REManagedObject<TypeMap[T]>;
-  function get_managed_singleton(name: string): REManagedObject<any>;
 
-  function create_instance<T extends keyof TypeMap>(
-    name: T
-  ): REManagedObject<TypeMap[T]>;
+  function get_managed_singleton<T extends keyof TypeMap>(name: T): TypeMap[T];
+  function get_managed_singleton(name: string): REManagedObject
+
+  function create_instance<T extends keyof TypeMap>(name: T): TypeMap[T];
 
   function find_type_definition<T extends keyof TypeMap>(
     name: T
   ): RETypeDefinition<TypeMap[T]>;
   function find_type_definition(name: string): RETypeDefinition<any>;
 
-  function to_managed_object<T>(ptr: Ptr<T>): REManagedObject<T>;
-  function to_managed_object<T>(obj: T): T;
+  function to_managed_object<T extends SystemObject>(ptr: Ptr<T>): T;
 
   function to_ptr<T>(obj: T): Ptr<T>;
 
@@ -97,14 +91,13 @@ declare namespace sdk {
   function create_managed_array<T extends keyof TypeMap>(
     name: T,
     length: number
-  ): REManagedObject<System_Array<TypeMap[T]>>;
+  ): System_Array<TypeMap[T]>;
   function create_managed_array(
     name: string,
     length: number
-  ): REManagedObject<System_Array<any>>;
+  ): System_Array<any>;
 
-  function create_managed_string(content: string): REManagedObject<string>;
-
+  function create_managed_string(content: string): REManagedObject;
   function hook<F extends Func>(
     func: F,
     before: HookFuncBefore<F> | undefined,

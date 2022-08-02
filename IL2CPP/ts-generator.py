@@ -284,7 +284,6 @@ def parseEnum(cls: Class, entry):
     makeNamespace(cls, entry["name_hierarchy"] or [])
 
     cls.parent = parseClass("System.Enum", True)
-    cls.underlying_type = "number"
     parseFields(cls, entry)
     return cls
 
@@ -296,18 +295,6 @@ def tryParseTemplateParam(name: str, entry: Dict):
         return new_class
     if re.fullmatch(r"!!+\d+", name):
         return parsed_types["Any"]
-    return None
-
-
-def tryPassFilter(name: str, entry: Dict):
-    # if name in ["System.Object", "System.Enum", "System.ValueType", "!0[]"]:
-    #     return None
-    # if name.endswith("[]"):
-    #     return None
-    # if filter and (not name.startswith(filter)):
-    #     if "parent" in entry:
-    #         return parseClass(entry["parent"])
-    #     return parsed_types["Any"]
     return None
 
 
@@ -395,10 +382,6 @@ def parseClass(name: str, force: bool = False) -> Class:
         parsed_types[name] = cls
         return cls
 
-    if not force:
-        if cls := tryPassFilter(name, entry):
-            return cls
-
     new_class = Class()
     new_class.name = name
     new_class.index = entry["id"]
@@ -442,48 +425,55 @@ def write_field(file: IO, cls: Class, field: Field):
         file.write("static ")
     file.write(
         f'{quote(field.name)}: {field.type.typescript_type(field.static)};')
-    if not field.static:
-        file.write(
-            f'  static {quote(field.name)}: Static<{cls.local_name()},"{field.name}">;')
     file.write("\n")
 
 
-def write_method(file: IO, cls: Class, method: Method, top=True):
+def write_field_def(file: IO, cls: Class, field: Field):
+    if field.static:
+        return
+    file.write(
+        f'    static {quote(field.name)}: StaticField<{cls.local_name()},{cls.local_name()}["{field.name}"]>;\n')
+
+
+def write_method_overload(file: IO, cls: Class, method: Method):
+    # Rewrite overloads from parent classes
+    parent = cls.parent
+    while parent:
+        if parent.generic_parent:
+            parent = parent.generic_parent
+        if m := next((m for m in parent.methods if
+                      m.name == method.name and
+                      m.static == method.static and
+                      (m.params != method.params or m.ret != method.ret)),
+                     None):
+            write_method_overload(file, parent, m)
+            write_method(file, parent, m)
+            break
+        parent = parent.parent
+
+
+def write_method(file: IO, cls: Class, method: Method):
     name = method.name
     static = method.static
 
     file.write(f"    ")
-    if not top:
-        file.write("    ")
 
     if method.static:
         file.write("static ")
     file.write(f"{quote(name)}")
 
-    # typescript-to-lua adds an implicit self by default
     file.write("(")
     for p in method.params:
         file.write(f"{p.name}: {p.type.typescript_type(static)}, ")
     file.write(f"): {method.ret.typescript_type(static)};")
-
-    if not method.static and top:
-        file.write(
-            f'  static {quote(method.name)}: Static<{cls.local_name()},"{method.name}">;')
-
     file.write("\n")
-    parent = cls.parent
-    while parent:
-        if parent.generic_parent:
-            parent = parent.generic_parent
-        if m := next((m for m in parent.methods if 
-                      m.name == method.name and
-                      m.static == method.static and
-                      (m.params != method.params or m.ret != method.ret )),
-                     None):
-            write_method(file, parent, m, False)
-            break
-        parent = parent.parent
 
+
+def write_method_def(file: IO, cls: Class, method: Method):
+    if method.static:
+        return
+    file.write(
+        f'    static {quote(method.name)}: StaticFunc<{cls.local_name()},{cls.local_name()}["{method.name}"]>;\n')
 
 
 def write_class(file: IO, class_def: Class):
@@ -495,10 +485,29 @@ def write_class(file: IO, class_def: Class):
     if class_def.parent:
         extends = f"extends {class_def.parent.typescript_type()} "
     file.write(f"  class {name}{template_full} {extends}{{\n")
+
+    # Parent overloads
+    if class_def.parent:
+        file.write("  // parent overloads\n")
+        for m in class_def.methods:
+            write_method_overload(file, class_def, m)
+        file.write("  //\n")
+
+    # normal fields
     for f in class_def.fields:
         write_field(file, class_def, f)
     for m in class_def.methods:
         write_method(file, class_def, m)
+
+    if not class_def.generic_count:
+        file.write("\n  // Static member abstractions\n")
+        # file.write(f"\n    static M: Members<{name}>;\n")
+        for f in class_def.fields:
+            write_field_def(file, class_def, f)
+        for m in class_def.methods:
+            write_method_def(file, class_def, m)
+        file.write("\n")
+
     file.write("  }\n")
 
     parent_id_list = [class_def.index]
@@ -524,7 +533,7 @@ def write_enum(file: IO, class_def: Class):
                 file.write(f"    {f.name} = {f.default},\n")
             else:
                 file.write(f'    {f.name} = "{f.default}",\n')
-    file.write("}\n")
+    file.write("  }\n")
 
 
 def write_tree(file: IO, tree_cursor: NamespaceTree, parent_cursor: NamespaceTree | None):
