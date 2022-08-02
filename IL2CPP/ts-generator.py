@@ -135,6 +135,14 @@ converted_types = {
     "System.Void": "void",
 }
 
+# Types that have proxied lua types
+ref_types = {
+    "System.Object": "REManagedObject"
+}
+
+# function names with known conflicts with lua types, listed so we can fall back to the full signature for them
+function_name_blacklist = ["release"]
+
 parsed_types = {
     "Any": Class(name="Any", underlying_type="any"),
     "unknown": Class(name="unknown", underlying_type="unknown")
@@ -215,7 +223,7 @@ def parseMethod(method_name: str, method_entry: Dict, found: Set[str]):
     name = method_name.strip("0123456789")
     param_entries = method_entry.get("params") or []
 
-    if name in found:
+    if name in found or name in function_name_blacklist:
         name = name + '(' + ','.join(e.get("type")
                                      for e in param_entries) + ')'
     if name in found:
@@ -484,6 +492,11 @@ def write_class(file: IO, class_def: Class):
     extends = ""
     if class_def.parent:
         extends = f"extends {class_def.parent.typescript_type()} "
+    if class_def.name in ref_types:
+        parent = "{}"
+        if class_def.parent:
+            parent = class_def.typescript_type()
+        extends = f"extends Inherit<{parent}, {ref_types[class_def.name]}> "
     file.write(f"  class {name}{template_full} {extends}{{\n")
 
     # Parent overloads
@@ -509,8 +522,6 @@ def write_class(file: IO, class_def: Class):
         file.write("\n")
 
     file.write("  }\n")
-
-    parent_id_list = [class_def.index]
 
     # # indexing function
     # if GENERAL_INDEXING:
