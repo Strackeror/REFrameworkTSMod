@@ -45,14 +45,9 @@ declare type REManagedObject<T> = {
 
 declare type Ptr<T = any> = {};
 
-type InTypeId<T> = T extends TypeId<infer U, any>
-  ? U extends unknown
-    ? T
-    : U
-  : T;
 
 type PtrTuple<T> = {
-  [K in keyof T]: Ptr<InTypeId<T[K]>>
+  [K in keyof T]: Ptr<T[K]>
 };
 
 type First3Elements<T> = T extends [infer E1, infer E2, infer E3, ...any]
