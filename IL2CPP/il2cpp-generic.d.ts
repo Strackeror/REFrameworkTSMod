@@ -1,24 +1,14 @@
 // Generic types used to emulate inheritance
 
-// Tag type for static functions
-declare interface Static {
-  __Static: Static;
-}
+declare type StaticField<T, F> = REField<T, F>
+declare type StaticFunc<T, F extends Func> = REMethodDefinition<T, F>
 
-type StaticThis<This, T> = This extends Static ? Static : T;
+declare type Inherit<T extends [any, ...any]> = T extends [
+  infer U,
+  infer V,
+  ...infer R
+]
+  ? U & Inherit<[V, ...R]>
+  : T[0];
 
-declare type Members<T> = {
-  [K in keyof T]: T[K] extends (
-    this: infer This,
-    ...args: infer Params
-  ) => infer ReturnType
-    ? (this: StaticThis<This, T>, ...args: Params) => ReturnType
-    : T[K] extends (this: infer This) => infer ReturnType
-    ? (this: StaticThis<This, T>) => ReturnType
-    : T[K];
-};
-
-declare type Inherit<T, Parent> = T & Omit<Parent, keyof T>;
-declare type Indexed<Input, Output> = {
-  [K in Input as K extends string | number | symbol ? K : never]: Output;
-};
+declare let Inherit: new<T extends [any, ...any]>() => Inherit<T>
