@@ -7,6 +7,11 @@ type Func = (...args: any[]) => any;
 declare type TypeName = keyof TypeMap;
 declare type REType<T extends TypeName> = TypeMap[T];
 
+type Methods<T> = {[K in keyof T as T[K] extends Func ? K : never]: T[K]}
+type Method<T, N extends keyof Methods<T>> = Methods<T>[N] extends Func
+  ? Methods<T>[N]
+  : never;
+
 declare interface REMethodDefinition<T, F extends Func> {
   (self: T, ...args: Parameters<F>): ReturnType<F>;
   call(self: T, ...args: Parameters<F>): ReturnType<F>;
@@ -24,9 +29,9 @@ declare interface RETypeDefinition<T> {
   create_instance(simplify: boolean): T;
   get_full_name(): string;
   get_name(): string;
-  get_method<Name extends keyof T>(
+  get_method<Name extends keyof Methods<T>>(
     name: Name
-  ): REMethodDefinition<T, T[Name] extends Func ? T[Name] : Func>;
+  ): REMethodDefinition<T, Method<T, Name>>;
   get_field<Name extends keyof T>(name: Name): REField<T, T[Name]>;
 }
 
@@ -35,7 +40,10 @@ declare interface REManagedObject {
   release: () => void;
   force_release: () => void;
   get_type_definition: () => RETypeDefinition<this>;
-  call<N extends keyof this, F extends Func = this[N] extends Func ? this[N] : never>(
+  call<
+    N extends keyof Methods<this>,
+    F extends Func = Method<this, N>
+  >(
     name: N,
     ...args: Parameters<F>
   ): ReturnType<F>;

@@ -416,7 +416,7 @@ def passClass(cls: Class):
         parent = cls.parent
         for g in cls.parent.generic_params:
             if g == cls:
-                cls.parent = parent.parent
+                cls.parent = parent.generic_parent
                 cls.fields.append(Field(cls, "Instance", static=True))
                 break
 
@@ -496,7 +496,7 @@ def write_class(file: IO, class_def: Class):
         parent = "{}"
         if class_def.parent:
             parent = class_def.typescript_type()
-        extends = f"extends Inherit<{parent}, {ref_types[class_def.name]}> "
+        extends = f"extends Inherit<[{parent}, {ref_types[class_def.name]}]> "
     file.write(f"  class {name}{template_full} {extends}{{\n")
 
     # Parent overloads
