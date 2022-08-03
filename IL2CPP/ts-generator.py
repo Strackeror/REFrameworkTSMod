@@ -137,7 +137,9 @@ converted_types = {
 
 # Types that have proxied lua types
 ref_types = {
-    "System.Object": "REManagedObject"
+    "System.Object": "REManagedObject",
+    "System.ValueType": "REValueType",
+    "System.Array": "SystemArray<G0>"
 }
 
 # function names with known conflicts with lua types, listed so we can fall back to the full signature for them
@@ -412,6 +414,7 @@ def parseClass(name: str, force: bool = False) -> Class:
 
 def passClass(cls: Class):
     '''second pass for fixes'''
+    # Typescript does not like recursive extension like this
     if cls.parent:
         parent = cls.parent
         for g in cls.parent.generic_params:
@@ -419,6 +422,10 @@ def passClass(cls: Class):
                 cls.parent = parent.generic_parent
                 cls.fields.append(Field(cls, "Instance", static=True))
                 break
+
+    # Small hack to correctly bind to the lua type
+    if "System.Array" in parsed_types:
+        parsed_types["System.Array"].generic_count = 1
 
 
 def quote(pstr: str) -> str:
@@ -491,12 +498,9 @@ def write_class(file: IO, class_def: Class):
     template_full = class_def.template(True)
     extends = ""
     if class_def.parent:
-        extends = f"extends {class_def.parent.typescript_type()} "
+        extends = f"extends {class_def.parent.typescript_type()}{class_def.parent.template(False)} "
     if class_def.name in ref_types:
-        parent = "{}"
-        if class_def.parent:
-            parent = class_def.typescript_type()
-        extends = f"extends Inherit<[{parent}, {ref_types[class_def.name]}]> "
+        extends = f"extends {ref_types[class_def.name]} "
     file.write(f"  class {name}{template_full} {extends}{{\n")
 
     # Parent overloads
