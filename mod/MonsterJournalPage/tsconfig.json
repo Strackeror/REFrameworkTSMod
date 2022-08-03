@@ -1,0 +1,30 @@
+{
+    "$schema": "https://raw.githubusercontent.com/TypeScriptToLua/TypeScriptToLua/master/tsconfig-schema.json",
+    "compilerOptions": {
+        "lib": [
+            "ESNext"
+        ],
+        "types": [
+            "lua-types/5.4"
+        ],
+        "outDir": "./dist/MonsterJournalPage",
+        "baseUrl": ".",
+        "paths": {
+            "MonsterJournalPage/*": [
+                "./*",
+                "../../IL2CPP/*"
+            ]
+        },
+        "noImplicitAny": true
+    },
+    "tstl": {
+        "luaLibImport": "inline",
+        "luaTarget": "5.3",
+        "measurePerformance": true,
+        "noImplicitGlobalVariables": true,
+    },
+    "include": [
+        "./*",
+        "../../IL2CPP/*"
+    ]
+}
