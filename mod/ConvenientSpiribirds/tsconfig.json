@@ -7,19 +7,24 @@
         "types": [
             "lua-types/5.4"
         ],
-        "outDir": "./dist/ConvenientSpiribirds",
         "baseUrl": ".",
         "paths": {
-            "ConvenientSpiribirds/*": [
-                "./*",
+            "IL2CPP/*": [
                 "../../IL2CPP/*"
             ]
-        }
+        },
+        "outDir": "./dist"
     },
     "tstl": {
         "luaLibImport": "inline",
         "luaTarget": "5.3",
         "measurePerformance": true,
+        "noImplicitGlobalVariables": true,
+        "luaPlugins": [
+            {
+                "name": "../../mod-exporter-plugin/mod-export-path.ts"
+            }
+        ]
     },
     "include": [
         "./*",

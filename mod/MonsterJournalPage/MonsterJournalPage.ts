@@ -1,4 +1,4 @@
-import { snow } from "MonsterJournalPage/IL2CPP";
+import { snow } from "IL2CPP/IL2CPP";
 
 function get_current_target_monsters(): snow.enemy.EnemyDef.EmTypes[] {
   let current_quest = snow.QuestManager.Instance.getActiveQuestData();

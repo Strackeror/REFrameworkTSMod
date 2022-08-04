@@ -2,7 +2,8 @@
     "namespace_tree_filter": [
         "snow.Snow",
         "snow.gui.StmGui",
-        "snow.gui.Snow"
+        "snow.gui.Snow",
+        "snow.envCreature.Ec008"
     ],
     "type_map_filter": [
         "snow.SnowSingleton",

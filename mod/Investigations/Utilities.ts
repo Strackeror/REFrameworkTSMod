@@ -1,4 +1,4 @@
-import { System } from "Investigations/IL2CPP";
+import { System } from "IL2CPP/IL2CPP";
 
 export function create_array<T extends TypeName>(
   type: T,

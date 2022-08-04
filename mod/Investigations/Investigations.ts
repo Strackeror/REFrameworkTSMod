@@ -1,10 +1,10 @@
-import { snow } from "Investigations/IL2CPP";
+import { snow } from "IL2CPP/IL2CPP";
 import {
   create_investigation,
   generate_quest_data,
   get_monster_name,
   update_quest_no,
-} from "Investigations/QuestGenerator";
+} from "./QuestGenerator";
 import QCF = snow.gui.fsm.questcounter.GuiQuestCounterFsmManager;
 
 export interface InvestigationDef {

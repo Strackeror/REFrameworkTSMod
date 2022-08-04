@@ -1,8 +1,9 @@
 import sys
 import os
 import shutil
+import json
 
-mhrise_path=r"C:\Program Files (x86)\Steam\steamapps\common\MonsterHunterRise"
+mhrise_path = json.load(open("dist/RisePath.json"))["RisePath"]
 for mod in sys.argv[1:]:
     os.system("npx tstl -p " + mod)
 

@@ -1,4 +1,4 @@
-import {snow} from "ConvenientSpiribirds/IL2CPP"
+import {snow} from "IL2CPP/IL2CPP"
 import LvBuffCageId = snow.data.ContentsIdSystem.LvBuffCageId;
 
 

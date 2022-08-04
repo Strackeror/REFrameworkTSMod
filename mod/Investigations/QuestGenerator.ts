@@ -1,7 +1,7 @@
-import { snow } from "Investigations/IL2CPP";
-import { create_array } from "Investigations/Utilities";
-import { Data, EnemyData, MonsterData } from "Investigations/InvestigationData";
-import { Investigation, InvestigationDef } from "Investigations/Investigation";
+import { snow } from "IL2CPP/IL2CPP";
+import { create_array } from "./Utilities";
+import { Data, EnemyData, MonsterData } from "./InvestigationData";
+import { Investigation, InvestigationDef } from "./Investigations";
 
 import QuestOrderType = snow.quest.QuestOrderType;
 
