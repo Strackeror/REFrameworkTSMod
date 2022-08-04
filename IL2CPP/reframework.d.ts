@@ -2,6 +2,7 @@ type TypeMap = import("./typemap").TypeMap;
 type System_Array<T> = import("./IL2CPP").System.Array.Generic<T>;
 type SystemObject = import("./IL2CPP").System.Object;
 type SystemString = import("./IL2CPP").System.String
+type SystemType = import("./IL2CPP").System.Type;
 
 type Func = (...args: any[]) => any;
 
@@ -41,16 +42,30 @@ declare interface REField<T, Type> {
 }
 
 declare interface RETypeDefinition<T = unknown> {
-  create_instance(simplify: boolean): T;
+  create_instance(simplify?: boolean): T;
   get_full_name(): string;
   get_name(): string;
   get_method<Name extends keyof Methods<T>>(
     name: Name
   ): REMethodDefinition<T, Method<T, Name>>;
   get_field<Name extends keyof T>(name: Name): REField<T, T[Name]>;
+
+  get_runtime_type(): SystemType
+
+  is_a(type: string): boolean
+  is_a<T>(type: RETypeDefinition<T>): boolean
 }
 
-declare class REManagedObject {
+
+/* Base class for static level functions of the namespace builder */
+declare class REFType {
+  static T<Type extends REFType>(this: {
+    new (...args: any[]): Type;
+  }): RETypeDefinition<Type>;
+  
+}
+
+declare class REManagedObject extends REFType {
   get_address: () => number;
 
   get_type_definition: () => RETypeDefinition<this>;
@@ -59,7 +74,7 @@ declare class REManagedObject {
   call: (name: string, ...args: any[]) => any;
   get_field: (name: string) => any;
   set_field: (name: string, value: any) => void;
-  
+
   add_ref: () => this;
   add_ref_permanent: () => this;
   release: () => void;
@@ -81,7 +96,7 @@ declare class REManagedObject {
 }
 
 // Should just be 'ValueType' but then the name conflicts with the actual object
-declare class REValueType {
+declare class REValueType extends REFType {
   call: (name: string, ...args: any[]) => any;
   get_field: (name: string) => any;
   set_field: (name: string, value: any) => void;
@@ -103,7 +118,7 @@ declare class REValueType {
   write_double: (offset: number, value: number) => void;
 }
 
-declare class SystemArray<T = unknown> {
+declare class SystemArray<T = unknown> extends REFType {
   get_size(): number;
   get_element(idx: number): T;
   get_elements(): T[];

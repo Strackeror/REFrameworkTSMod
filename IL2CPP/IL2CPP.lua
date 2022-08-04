@@ -2,8 +2,8 @@ local create_namespace
 local namespace_functions = {}
 
 ---@param self Namespace
-function namespace_functions.M(self)
-    return self
+function namespace_functions.T(self)
+    return function(ns) return ns._typedef end
 end
 
 ---@param self Namespace
