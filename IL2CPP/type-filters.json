@@ -3,7 +3,7 @@
         "snow.Snow",
         "snow.gui.StmGui",
         "snow.gui.Snow",
-        "snow.envCreature.Ec008"
+        "snow.envCreature"
     ],
     "type_map_filter": [
         "snow.SnowSingleton",
