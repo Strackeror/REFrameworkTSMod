@@ -126,7 +126,7 @@ declare class SystemArray<T = unknown> extends REFType {
   [idx: number]: T extends SystemObject ? T : SystemObject
 }
 
-declare type Ptr<T = any> = {};
+declare class Ptr<T = any> { private __content: T; }
 
 type PtrTuple<T> = {
   [K in keyof T]: Ptr<T[K]>;
@@ -158,9 +158,14 @@ declare namespace sdk {
   function find_type_definition(name: string): RETypeDefinition<any>;
 
   function to_managed_object<T extends SystemObject>(ptr: Ptr<T>): T;
+
+  // Hacky Overload so that we can actually return strings
+  function to_ptr(obj: SystemString): Ptr<string>;
+
   function to_ptr<T>(obj: T): Ptr<T>;
+
   function to_float(ptr: Ptr<number>): number;
-  function to_int64(ptr: Ptr<number>): number;
+  function to_int64<T extends number>(ptr: Ptr<T>): T;
   function to_double(ptr: Ptr<number>): number;
 
   function float_to_ptr(number: number): Ptr<number>;

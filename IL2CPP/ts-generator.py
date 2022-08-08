@@ -261,7 +261,9 @@ def parseMethods(cls: Class, cls_entry: Dict):
 
 def parseFields(cls: Class, cls_entry: Dict):
     if "fields" in cls_entry:
-        for _name, _field in cls_entry["fields"].items():
+        sorted_fields = sorted(
+            cls_entry["fields"].items(), key=lambda pair: pair[1]["id"])
+        for _name, _field in sorted_fields:
             default = _field.get("default")
             static = "Static" in (_field.get("flags") or "")
             cls.fields.append(
@@ -450,8 +452,14 @@ def write_field_def(file: IO, cls: Class, field: Field):
         f'    static {quote(field.name)}: StaticField<{cls.local_name()},{cls.local_name()}["{field.name}"]>;\n')
 
 
-def write_method_overload(file: IO, cls: Class, method: Method):
-    # Rewrite overloads from parent classes
+def write_method_override(file: IO, cls: Class, method: Method, top=True):
+    # Rewrite overloads from parent class
+
+    # Due to how typescript resolves overloads in different contexts, this is very weird
+    # When calling a function in actual code, the first matching overload is chosen
+    # But when manipulating overloaded method types, it generally defaults to the last actual overload
+    # The solution : Have 2 copies of the current class overload
+
     parent = cls.parent
     while parent:
         if parent.generic_parent:
@@ -461,8 +469,10 @@ def write_method_overload(file: IO, cls: Class, method: Method):
                       m.static == method.static and
                       (m.params != method.params or m.ret != method.ret)),
                      None):
-            write_method_overload(file, parent, m)
+            write_method_override(file, parent, m, False)
             write_method(file, parent, m)
+            if top:
+                write_method(file, cls, method)
             break
         parent = parent.parent
 
@@ -503,22 +513,20 @@ def write_class(file: IO, class_def: Class):
         extends = f"extends {ref_types[class_def.name]} "
     file.write(f"  class {name}{template_full} {extends}{{\n")
 
-    # Parent overloads
-    if class_def.parent:
-        file.write("  // parent overloads\n")
-        for m in class_def.methods:
-            write_method_overload(file, class_def, m)
-        file.write("  //\n")
-
     # normal fields
     for f in class_def.fields:
         write_field(file, class_def, f)
     for m in class_def.methods:
         write_method(file, class_def, m)
 
+    # Parent overloads
+    if class_def.parent:
+        file.write("  // parent overloads\n")
+        for m in class_def.methods:
+            write_method_override(file, class_def, m)
+
     if not class_def.generic_count:
         file.write("\n  // Static member abstractions\n")
-        # file.write(f"\n    static M: Members<{name}>;\n")
         for f in class_def.fields:
             write_field_def(file, class_def, f)
         for m in class_def.methods:
@@ -526,18 +534,6 @@ def write_class(file: IO, class_def: Class):
         file.write("\n")
 
     file.write("  }\n")
-
-    # # indexing function
-    # if GENERAL_INDEXING:
-    #     if (any(m.name == "get_Item" for m in class_def.methods) and
-    #             any(m.name == "set_Item" for m in class_def.methods)):
-    #         get = next(m for m in class_def.methods if m.name == "get_Item")
-    #         if len(get.params) == 1:
-    #             input = get.params[0]
-    #             output = get.ret
-    #             file.write(
-    #                 f' &  Indexed<{input.type.typescript_type()},{output.typescript_type()}>\n')
-    # file.write("  }\n")
 
 
 def write_enum(file: IO, class_def: Class):
