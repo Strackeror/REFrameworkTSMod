@@ -1,4 +1,4 @@
-import { snow } from "IL2CPP/IL2CPP";
+import { snow, System } from "IL2CPP/IL2CPP";
 import {
   create_investigation,
   generate_quest_data,
@@ -100,13 +100,22 @@ sdk.hook(
   }
 )
 
-sdk.hook(snow.QuestManager.questEnemyDie, ([_, self, mon]) => {
+sdk.hook(snow.QuestManager.questEnemyDie, ([_, self, mon, _dieType]) => {
   let quest_mgr = sdk.to_managed_object(self);
-
   if (quest_mgr.getQuestRank_Lv() != snow.QuestManager.QuestRank.Master) {
     return;
   }
+
+  let dieType = sdk.to_int64(_dieType)
+  if (dieType > snow.quest.EmEndType.Capture) {
+    return;
+  }
+
   let monster = sdk.to_managed_object(mon);
+  if (!monster.isQuestTargetEnemy()) {
+    return;
+  }
+
   let monster_id = monster.get_EnemyType();
 
   let inv = create_investigation(get_player_name(), monster_id) as Investigation
