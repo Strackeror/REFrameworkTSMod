@@ -13,7 +13,8 @@
                 "../../IL2CPP/*"
             ]
         },
-        "outDir": "./dist"
+        "outDir": "./dist",
+        "skipLibCheck": true,
     },
     "tstl": {
         "luaLibImport": "inline",
