@@ -25,6 +25,7 @@ if len(sys.argv) > 1:
 else:
     mod_dirs = [os.path.join("mod", f) for f in next(os.walk("mod"))[1]]
 for m in mod_dirs:
+    m = os.path.normpath(m)
     name = os.path.basename(m)
     os.system(f"npx tstl -p {m}")
     zipfolder(os.path.join(m, "dist"),
