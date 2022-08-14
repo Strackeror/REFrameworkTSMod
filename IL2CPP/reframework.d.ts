@@ -5,6 +5,7 @@ type SystemString = import("./IL2CPP").System.String
 type SystemType = import("./IL2CPP").System.Type;
 
 type Func = (...args: any[]) => any;
+type StaticFunc = (this: void, ...args: any[]) => any;
 
 declare type TypeName = keyof TypeMap;
 declare type REType<T extends TypeName> = TypeMap[T];
@@ -15,7 +16,7 @@ type Method<T, N extends keyof Methods<T>> = Methods<T>[N] extends Func
   : never;
 
 declare interface REMethodDefinition<T, F extends Func> {
-  (self: T, ...args: Parameters<F>): ReturnType<F>;
+  (this: void, self: T, ...args: Parameters<F>): ReturnType<F>;
   call(self: T, ...args: Parameters<F>): ReturnType<F>;
   get_name(): string;
   get_return_type(): RETypeDefinition;
@@ -132,15 +133,9 @@ type PtrTuple<T> = {
   [K in keyof T]: Ptr<T[K]>;
 };
 
-type First3Elements<T> = T extends [infer E1, infer E2, infer E3, ...any]
-  ? [E1, E2, E3]
-  : T extends [...any]
-  ? T
-  : [any, any, any];
-
 type HookFuncBefore<F extends Func> = (
   this: void,
-  args: [Ptr<void>, ...First3Elements<PtrTuple<Parameters<F>>>]
+  args: [Ptr<void>, ...PtrTuple<Parameters<F>>]
 ) => sdk.PreHookResult | void;
 
 type HookFuncAfter<F extends Func> = (
@@ -166,6 +161,7 @@ declare namespace sdk {
 
   function to_float(ptr: Ptr<number>): number;
   function to_int64<T extends number>(ptr: Ptr<T>): T;
+  function to_int64(ptr: Ptr<boolean>): number;
   function to_double(ptr: Ptr<number>): number;
 
   function float_to_ptr(number: number): Ptr<number>;
@@ -187,7 +183,7 @@ declare namespace sdk {
   function create_single(num: number): REManagedObject
   function create_double(num: number): REManagedObject
 
-  function hook<F extends Func>(
+  function hook<F extends StaticFunc>(
     func: F,
     before: HookFuncBefore<F> | undefined,
     after?: HookFuncAfter<F>
