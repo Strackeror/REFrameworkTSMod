@@ -3,6 +3,7 @@
         "snow.Snow",
         "snow.gui.StmGui",
         "snow.gui.Snow",
+        "snow.gui.fsm.smithy",
         "snow.envCreature"
     ],
     "type_map_filter": [
