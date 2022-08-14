@@ -226,8 +226,8 @@ def parseMethod(method_name: str, method_entry: Dict, found: Set[str]):
     param_entries = method_entry.get("params") or []
 
     if name in found or name in function_name_blacklist:
-        name = name + '(' + ','.join(e.get("type")
-                                     for e in param_entries) + ')'
+        name = name + '(' + ', '.join(e.get("type")
+                                      for e in param_entries) + ')'
     if name in found:
         name = name + "->" + method_entry["returns"]["type"]
     if name in found:
