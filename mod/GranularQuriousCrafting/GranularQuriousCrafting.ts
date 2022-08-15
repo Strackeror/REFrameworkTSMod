@@ -147,9 +147,9 @@ function check_decide(self: GuiCustomBuildup): boolean {
         let buildup = buildup_data()[i];
         let description = custom_buildup_description(buildup);
         if (locked_slots[i]) {
-          text.set_Message(`Unlock ${description} (Cost:${buildup.get_Cost()})`)
+          text.set_Message(`${description} (Cost:${buildup.get_Cost()}) <COLOR FFA500>[Locked]</COLOR>`)
         } else {
-          text.set_Message(`Lock ${description} (Cost:${buildup.get_Cost()})`)
+          text.set_Message(`${description} (Cost:${buildup.get_Cost()})`)
         }
       }
      }
@@ -235,8 +235,11 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
       }
       let self = sdk.to_managed_object(args[1]);
       let cost = sdk.to_int64(args[2]) & 0xffff_ffff;
+
       let slotBlank = sdk.to_int64(args[3]) & 0xffff_ffff;
-      let skillList = sdk.to_managed_object(args[4]);
+      let skillList = current_inventory_data.getArmorBaseData().get_AllSkillDataList();
+      // let skillList = sdk.to_managed_object(args[4]);
+      
 
       let final_buildups: {
         [t: number]: snow.data.CustomBuildupResultData;
