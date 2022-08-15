@@ -1,18 +1,68 @@
 import { snow, System, via } from "IL2CPP/IL2CPP";
 import GuiCustomBuildup = snow.gui.fsm.smithy.GuiCustomBuildup;
 
+let NO_ELEMENT = snow.data.DataDef.ArmorElementRegistTypes.Max;
+let ELEMENT_ARRAY = ["Fire", "Water", "Thunder", "Ice", "Dragon"];
+function custom_buildup_description(buildup: snow.data.CustomBuildupResultData): string {
+  if (buildup.get_IsDefBounus()) {
+    let sign = buildup.get_Value() > 0 ? "+" : "";
+    return `Def ${sign}${buildup.get_Value()}`;
+  }
+
+  if (buildup.get_RegElement() < NO_ELEMENT) {
+    let sign = buildup.get_Value() > 0 ? "+" : "";
+    return `${ELEMENT_ARRAY[buildup.get_RegElement()]} Res ${sign}${buildup.get_Value()}`;
+  }
+
+  if (buildup.get_IsSlotBonus()) {
+    return `Slot +${buildup.get_Value()}`;
+  }
+
+  if (buildup.get_IsSkillAddBonus()) {
+    let skillData = snow.data.SkillDataManager.getBaseData(buildup.get_PlSkillId());
+    return `+${skillData.get_Name()}`;
+  }
+
+  if (buildup.get_IsSkillSubBonus()) {
+    let skillData = snow.data.SkillDataManager.getBaseData(buildup.get_PlSkillId());
+    return `-${skillData.get_Name()}`;
+  }
+  return `Unrecognized`;
+}
+
+// Static data
+let locked_slots: boolean[];
+let current_inventory_data: snow.data.EquipmentInventoryData;
+let buildup_count = 0;
+
+
+function buildup_data() {
+  return current_inventory_data.getArmorData().get_CustomBuildupResult();
+}
+
+function remaining_cost(): number {
+  let cost = current_inventory_data.getArmorBaseData().get_CustomCost()
+  for (let i = 0; i < current_inventory_data.get_CustomCount(); ++i) {
+    if (locked_slots[i]) {
+      cost -= buildup_data()[i].get_Cost();
+    }
+  }
+  return cost
+}
+
 function equip_is_craftable_armor(self: GuiCustomBuildup): boolean {
   return (
     !self.get_IsWeapon() &&
-    self._PlayerEquipBoxCtrl._EquipBoxGridCursorCtrl.getSelectedEquipInventoryData()
-      ._CustomEnable
+    self._PlayerEquipBoxCtrl._EquipBoxGridCursorCtrl.getSelectedEquipInventoryData()._CustomEnable
   );
 }
 
-function current_slot_index(self: GuiCustomBuildup): number | undefined {
+function current_buildup_index(self: GuiCustomBuildup): number | undefined {
   let index = self._CursorCustomTopMenu.getIndex();
-  if (index >= 1 && index <= 7) {
-    return index - 1;
+  let begin = 1;
+  let end = begin + buildup_count;
+  if (index >= begin && index < end) {
+    return index - begin;
   }
   return undefined;
 }
@@ -26,25 +76,10 @@ function check_decide(self: GuiCustomBuildup): boolean {
       snow.gui.StmGuiInput.MouseEventCheckCtrlType.PointingAny,
       0x7fff_ffff
     ) ||
-    snow.gui.StmGuiInput.andTrg(
-      snow.StmInputManager.UI_INPUT.CONF_MENU_DECIDE,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      0,
-      false,
-      false
-    )
+    snow.gui.StmGuiInput.andTrg(snow.StmInputManager.UI_INPUT.CONF_MENU_DECIDE, 0, 0, 0, 0, 0, 0, 0, 0, 0, false, false)
   );
 }
 
-let locked_slots: boolean[];
-let current_inventory_data: snow.data.EquipmentInventoryData;
 {
   let self: snow.gui.fsm.smithy.GuiCustomBuildup;
   let keepCursor: boolean;
@@ -55,22 +90,34 @@ let current_inventory_data: snow.data.EquipmentInventoryData;
       keepCursor = (sdk.to_int64(args[2]) & 1) == 1;
     },
     (retval) => {
+      if (!keepCursor) {
+        locked_slots = [false, false, false, false, false, false, false];
+      }
+
       if (!equip_is_craftable_armor(self)) {
         return retval;
       }
-      if (!keepCursor) {
-        locked_slots = [false, false, false, false, false, false, false];
-        current_inventory_data =
-          self._PlayerEquipBoxCtrl._EquipBoxGridCursorCtrl.getSelectedEquipInventoryData();
+      current_inventory_data = self._PlayerEquipBoxCtrl._EquipBoxGridCursorCtrl.getSelectedEquipInventoryData();
+
+      buildup_count = 0
+      for (let i = 0; i < 7; ++i) {
+        if (buildup_data()[i].get_Id() == 0) {
+          break;
+        }
+        buildup_count += 1
       }
-      let newCount = self._ListCustomCategory.get_ItemCount() + 7;
-      self._ListCustomCategory[
-        "init(System.UInt32, System.UInt32, System.Int32, System.Int32)"
-      ](newCount, newCount, 0, 0);
-      self._ListCustomCategory.set_ItemCount(newCount);
-      self._ListCustomCategory.set_ItemMax(newCount);
-      self._CursorCustomTopMenu.updateMenuCursorParam(newCount, newCount);
-      self._CategoryMenuRemoveIndex += 7;
+
+      let new_count = self._ListCustomCategory.get_ItemCount() + buildup_count;
+      self._ListCustomCategory["init(System.UInt32, System.UInt32, System.Int32, System.Int32)"](
+        new_count,
+        new_count,
+        0,
+        0
+      );
+      self._ListCustomCategory.set_ItemCount(new_count);
+      self._ListCustomCategory.set_ItemMax(new_count);
+      self._CursorCustomTopMenu.updateMenuCursorParam(new_count, new_count);
+      self._CategoryMenuRemoveIndex += buildup_count;
     }
   );
 }
@@ -89,23 +136,23 @@ let current_inventory_data: snow.data.EquipmentInventoryData;
       }
 
       let items = self._ListCustomCategory.get_Items();
-      for (let i of $range(1, 7)) {
-        let item = items[i];
-        let text = item["getObject(System.String, System.Type)"](
+      for (let i = 0; i < buildup_count; ++i) {
+        let text = items[i + 1]["getObject(System.String, System.Type)"](
           "pnl_MenuList/txt_menu",
           via.gui.Text.T().get_runtime_type()
         ) as via.gui.Text;
         if (!text) {
           continue;
         }
-        if (locked_slots[i - 1]) {
-          text.set_Message(`Unlock qurious slot ${i}`);
+        let buildup = buildup_data()[i];
+        let description = custom_buildup_description(buildup);
+        if (locked_slots[i]) {
+          text.set_Message(`Unlock ${description} (Cost:${buildup.get_Cost()})`)
         } else {
-          text.set_Message(`Lock qurious slot ${i}`);
+          text.set_Message(`Lock ${description} (Cost:${buildup.get_Cost()})`)
         }
       }
-      self._ListCustomCategory.update;
-    }
+     }
   );
 }
 
@@ -114,18 +161,17 @@ sdk.hook(GuiCustomBuildup.updateDetailWindowBySelectTopMenu, (args) => {
   if (!equip_is_craftable_armor(self)) {
     return;
   }
-  let cursorIndex = current_slot_index(self);
-  if (cursorIndex == undefined) {
+  let buildup_index = current_buildup_index(self);
+  if (buildup_index == undefined) {
     return;
   }
 
-  let buildupSlot =
-    self._PlayerEquipBoxCtrl._EquipBoxGridCursorCtrl.getSelectedEquipInventoryData()
-      ._CustomBuildup[cursorIndex];
+  let buildupSlot = buildup_data()[buildup_index]
   self._TextDetailWindowMenu.set_Message(`Lock qurious slot`);
   self._TextDetailWindowExplain.set_Message(
-    `Currently in slot: ${buildupSlot?._Id}`
-  );
+`Currently in slot: ${custom_buildup_description(buildupSlot)}
+Available Cost: ${remaining_cost()}`
+    );
   return sdk.PreHookResult.SKIP_ORIGINAL;
 });
 
@@ -135,27 +181,51 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
     return;
   }
 
-  let slotIndex = current_slot_index(self);
-  if (slotIndex == undefined) {
+  let buildup_index = current_buildup_index(self);
+  if (buildup_index == undefined) {
     return;
   }
 
   if (check_decide(self)) {
-    locked_slots[slotIndex] = !locked_slots[slotIndex];
+    // Logic to prevent locking slots that would result into negative costs
+    // Sending a negative cost to the rolling function gives invalid results
+    let cost = buildup_data()[buildup_index].get_Cost();
+    if (locked_slots[buildup_index]) {
+      cost *= -1
+    }
+    if (cost < remaining_cost()) {
+      locked_slots[buildup_index] = !locked_slots[buildup_index];
+    }
+
+    self.updateMaterialListWindow()
     self.updateDetailWindowBySelectTopMenu();
     self.updateTopMenu();
     return sdk.PreHookResult.SKIP_ORIGINAL;
   }
 });
 
+{
+  let args;
+  sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, (a) => {
+    args = a;
+  },
+  (retval) => {
+    if (locked_slots) {
+      let param = sdk.to_managed_object(retval).MemberwiseClone() as snow.data.CustomBuildupArmorMaterialUserData.Param;
+      for (let b of locked_slots) {
+        if (b) {
+          param._MaterialCategoryNum *= 2;
+        }
+      }
+      return sdk.to_ptr(param);
+    }
+    return retval;
+  });
+}
 
 {
-  let SKILL_MINUS_ID = 149;
-  let SLOT_PLUS_1 = 139;
-  let SLOT_PLUS_2 = 140;
-  let SLOT_PLUS_3 = 141;
-
   let recurse_guard = false;
+
   let ret: any;
   sdk.hook(
     snow.data.ArmorCustomBuildupData.createResult,
@@ -173,37 +243,26 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
       } = {};
 
       let new_cost = cost;
-      let armor_data = current_inventory_data.getArmorData();
       let minimum_slot_count = 0;
-      for (let i of $range(0, 6)) {
+      for (let i = 0; i < skillList.mSize; ++i) {
+        log.info(`Armor skill ${i}: ${skillList.get_Item(i).get_Name()} ${skillList.get_Item(i).getLv(9)}`);
+      }
+
+      let forbidden_minus_skills: {[skillId: number]: true} = {}
+      for (let i = 0; i < buildup_count; ++i) {
         if (locked_slots[i]) {
           log.info(`Locked slot ${i}`);
-          let buildup = armor_data.get_CustomBuildupResult()[i];
-          switch (buildup.get_Id()) {
-            // If a minus skill is locked, remove it from the skill list
-            case SKILL_MINUS_ID:
-              for (let i of $range(0, skillList.mSize - 1)) {
-                if (
-                  skillList.get_Item(i).get_EquipSkillId() ==
-                  buildup.get_PlSkillId()
-                ) {
-                  skillList.RemoveAt(i);
-                  break;
-                }
-              }
-              break;
+          let buildup = buildup_data()[i];
 
-            // If a slot increase is locked, substract its value from the possible blank slots
-            case SLOT_PLUS_1:
-              slotBlank -= 1;
-              break;
-            case SLOT_PLUS_2:
-              slotBlank -= 2;
-              break;
-            case SLOT_PLUS_3:
-              slotBlank -= 3;
-              break;
+          // If a minus skill is locked, forbid it
+          if (buildup.get_IsSkillSubBonus()) {
+            forbidden_minus_skills[buildup.get_PlSkillId()] = true;
           }
+
+          if (buildup.get_IsSlotBonus()) {
+            slotBlank -= buildup.get_Value();
+          }
+
           // Substract cost of the buildup
           new_cost -= buildup.get_Cost();
           final_buildups[i] = buildup;
@@ -214,19 +273,36 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
       }
 
       // We reroll results until we have enough slots to fill everything
+      recurse_guard = true;
+
       let result: ReturnType<typeof self.createResult>;
       do {
-        recurse_guard = true;
         result = self.createResult(new_cost, slotBlank, skillList, false);
-        recurse_guard = false;
-      } while (result.get_Count() < minimum_slot_count)
+        if (result.get_Count() == 0) return;
+
+        let ok = true;
+        // Reroll if we have duplicate minus skills
+        for (let i = 0; i < result.get_Length(); ++i) {
+          if (result[i].get_IsSkillSubBonus() && forbidden_minus_skills[result[i].get_PlSkillId()]) { 
+            ok = false;
+          }
+        }
+
+        // Reroll if we don't have enough slots
+        if (result.get_Count() < minimum_slot_count) ok = false;
+
+        if (ok) break;
+      } while (true);
+
+      recurse_guard = false;
+
 
       let result_count = result.get_Count();
 
       for (let i of $range(0, result_count - 1)) {
-        for (let j of $range(0, 6)) {
+        for (let j of $range(0, result_count - 1)) {
           if (!(j in final_buildups)) {
-            final_buildups[j] = result[i]
+            final_buildups[j] = result[i];
             break;
           }
         }
@@ -238,11 +314,7 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
         if (i in final_buildups) {
           result[i] = final_buildups[i];
         }
-        log.info(
-          `${result[i].get_Id()}, skill: ${result[i].get_PlSkillId()}, ${result[
-            i
-          ].ToString()}`
-        );
+        log.info(`${result[i].get_Id()}, skill: ${result[i].get_PlSkillId()}, ${result[i].ToString()}`);
       }
 
       ret = sdk.to_ptr(result);
@@ -251,7 +323,7 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
     (retval) => {
       if (ret) {
         let nret = ret;
-        ret = undefined
+        ret = undefined;
         return nret;
       }
       return retval;
