@@ -7,29 +7,39 @@ function get_current_target_monsters(): snow.enemy.EnemyDef.EmTypes[] {
   }
 
   let data = current_quest.get_RawNormal();
-  if (!data) {
-    return [];
-  }
-
-  if (data._TargetType.Get(0) == snow.quest.QuestTargetType.AllMainEnemy) {
+  if (data)
+  {
     let ret = [];
-    for (let i = 0; i < data._BossEmType.get_Count(); ++i) {
-      let em = data._BossEmType.Get(i);
+    if (data._TargetType.Get(0) == snow.quest.QuestTargetType.AllMainEnemy) {
+      for (let i = 0; i < data._BossEmType.get_Count(); ++i) {
+        let em = data._BossEmType.Get(i);
+        if (em != 0) {
+          ret.push(data._BossEmType.Get(i));
+        }
+      }
+      return ret;
+    }
+
+    for (let i = 0; i < data._TgtEmType.get_Count(); ++i) {
+      let em = data._TgtEmType.Get(i);
       if (em != 0) {
-        ret.push(data._BossEmType.Get(i));
+        ret.push(data._TgtEmType.Get(i));
       }
     }
     return ret;
   }
 
-  let ret = [];
-  for (let i = 0; i < data._TgtEmType.get_Count(); ++i) {
-    let em = data._TgtEmType.Get(i);
-    if (em != 0) {
-      ret.push(data._TgtEmType.Get(i));
+  let mystery = current_quest.get_RandomMystery()
+  if (mystery)
+  {
+    let ret: number[] = []
+    for (let i = 0; i < mystery._HuntTargetNum; ++i) {
+      ret.push(mystery._BossEmType.Get(i));
     }
+    return ret;
+    
   }
-  return ret;
+  return [];
 }
 
 let current_idx = 0;
