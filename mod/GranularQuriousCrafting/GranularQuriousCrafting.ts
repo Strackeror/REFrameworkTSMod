@@ -146,11 +146,23 @@ function check_decide(self: GuiCustomBuildup): boolean {
         }
         let buildup = buildup_data()[i];
         let description = custom_buildup_description(buildup);
-        if (locked_slots[i]) {
-          text.set_Message(`${description} (Cost:${buildup.get_Cost()}) <COLOR FFA500>[Locked]</COLOR>`)
-        } else {
-          text.set_Message(`${description} (Cost:${buildup.get_Cost()})`)
+
+        text.set_Message(`${description} Cost:${buildup.get_Cost()}`);
+        let panel = items[i + 1]["getObject(System.String, System.Type)"](
+          "pnl_MenuList/pnl_Status",
+          via.gui.Panel.T().get_runtime_type()
+        ) as via.gui.Panel;
+        if (panel) {
+          if (locked_slots[i]) {
+            panel.set_PlayState("LOCK");
+            panel.set_Visible(true);
+          } else {
+            panel.set_PlayState("DEFAULT");
+            panel.set_Visible(false);
+          }
         }
+        snow.gui.SnowGuiCommonUtility.reqSe(0xf4b6879b);
+
       }
      }
   );
