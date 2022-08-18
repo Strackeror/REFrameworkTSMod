@@ -31,6 +31,7 @@ class Field:
 class Method:
     ret: Class
     name: str = ""
+    addr: str = ""
     index: int = 0
     static: bool = False
     params: List[Field] = field(default_factory=list)
@@ -139,7 +140,7 @@ converted_types = {
 ref_types = {
     "System.Object": "REManagedObject",
     "System.ValueType": "REValueType",
-    "System.Array": "SystemArray<G0>"
+    "!0[]": "SystemArray<G0>"
 }
 
 # function names with known conflicts with lua types, listed so we can fall back to the full signature for them
@@ -221,6 +222,7 @@ def parseMethod(method_name: str, method_entry: Dict, found: Set[str]):
     new_method = Method(parseClass(method_entry["returns"]["type"]))
     new_method.index = method_entry["id"]
     new_method.static = "Static" in method_entry["flags"]
+    new_method.addr = method_entry["function"]
 
     name = method_name.strip("0123456789")
     param_entries = method_entry.get("params") or []
@@ -252,8 +254,12 @@ def parseMethods(cls: Class, cls_entry: Dict):
     sorted_items = sorted(
         cls_entry["methods"].items(), key=lambda pair: pair[1]["id"])
     for name, entry in sorted_items:
-        if entry["function"] == "0" and "ContainsGenericParameters" not in (entry.get("impl_flags") or ""):
-            continue
+        if entry["function"] == "0":
+            has_generic_params = "ContainsGenericParameters" in (
+                entry.get("impl_flags") or "")
+            in_generic_class = cls.generic_count > 0
+            if not has_generic_params and not in_generic_class:
+                continue
         new_method = parseMethod(name, entry, methods)
         methods.add(new_method.name)
         cls.methods.append(new_method)
@@ -317,7 +323,14 @@ def tryParseArray(cls: Class, entry: Dict):
     name = cls.name
     if name == "!0[]":
         cls.generic_count = 1
-        return parseClassContent(cls, entry, ["System", "Array", "Generic"])
+        parseClassContent(cls, entry, ["System", "Array", "Generic"])
+        if not cls.parent:
+            return cls
+        for pm in cls.parent.methods:
+            if not any(pm.name == m.name for m in cls.methods):
+                cls.methods.append(pm)
+        cls.parent = None
+        return cls
 
     get_func = [entry["methods"][m]
                 for m in entry["methods"] if re.fullmatch(r'Get\d+', m)][0]
@@ -326,7 +339,8 @@ def tryParseArray(cls: Class, entry: Dict):
     if index_count == 1:
         return parseGenericSpecialization(cls, "!0[]", [contained_type])
 
-    return parseClassContent(cls, entry, contained_type.split('.') + [f"Array{index_count}"])
+    return parseClassContent(cls, entry, contained_type.split('.')
+                             + [f"Array{index_count}"])
 
 
 def parseGenericSpecialization(cls: Class, generic_parent_name: str, generic_params: List[str]):
@@ -425,10 +439,6 @@ def passClass(cls: Class):
                 cls.fields.append(Field(cls, "Instance", static=True))
                 break
 
-    # Small hack to correctly bind to the lua type
-    if "System.Array" in parsed_types:
-        parsed_types["System.Array"].generic_count = 1
-
 
 def quote(pstr: str) -> str:
     if valid_symbol(pstr):
@@ -491,6 +501,7 @@ def write_method(file: IO, cls: Class, method: Method):
     for p in method.params:
         file.write(f"{p.name}: {p.type.typescript_type(static)}, ")
     file.write(f"): {method.ret.typescript_type(static)};")
+    file.write(f' // {method.addr}')
     file.write("\n")
 
 
