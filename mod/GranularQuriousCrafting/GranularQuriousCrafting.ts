@@ -6,26 +6,26 @@ let ELEMENT_ARRAY = ["Fire", "Water", "Thunder", "Ice", "Dragon"];
 function custom_buildup_description(buildup: snow.data.CustomBuildupResultData): string {
   if (buildup.get_IsDefBounus()) {
     let sign = buildup.get_Value() > 0 ? "+" : "";
-    return `Def ${sign}${buildup.get_Value()}`;
+    return `${sign}${buildup.get_Value()} Defense`;
   }
 
   if (buildup.get_RegElement() < NO_ELEMENT) {
     let sign = buildup.get_Value() > 0 ? "+" : "";
-    return `${ELEMENT_ARRAY[buildup.get_RegElement()]} Res ${sign}${buildup.get_Value()}`;
+    return `${sign}${buildup.get_Value()} ${ELEMENT_ARRAY[buildup.get_RegElement()]} Res`;
   }
 
   if (buildup.get_IsSlotBonus()) {
-    return `Slot +${buildup.get_Value()}`;
+    return `+${buildup.get_Value()} Slot`;
   }
 
   if (buildup.get_IsSkillAddBonus()) {
     let skillData = snow.data.SkillDataManager.getBaseData(buildup.get_PlSkillId());
-    return `+${skillData.get_Name()}`;
+    return `+1 ${skillData.get_Name()}`;
   }
 
   if (buildup.get_IsSkillSubBonus()) {
     let skillData = snow.data.SkillDataManager.getBaseData(buildup.get_PlSkillId());
-    return `-${skillData.get_Name()}`;
+    return `-1 ${skillData.get_Name()}`;
   }
   return `Unrecognized`;
 }
@@ -42,7 +42,7 @@ function buildup_data() {
 
 function remaining_cost(): number {
   let cost = current_inventory_data.getArmorBaseData().get_CustomCost()
-  for (let i = 0; i < current_inventory_data.get_CustomCount(); ++i) {
+  for (let i = 0; i < buildup_count; ++i) {
     if (locked_slots[i]) {
       cost -= buildup_data()[i].get_Cost();
     }
@@ -80,6 +80,36 @@ function check_decide(self: GuiCustomBuildup): boolean {
   );
 }
 
+function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<snow.data.CustomBuildupResultData>) {
+  let base_data = armor.get_BaseData();
+  let skill_data = base_data.get_AllSkillDataList();
+  let skill_levels: { [skill_id: number]: number; _objTag: "" } = { _objTag: "" };
+
+  for (let i = 0; i < skill_data.get_Count(); ++i) {
+    skill_levels[skill_data.get_Item(i).get_EquipSkillId()] = skill_data.get_Item(i).get_TotalLv();
+  }
+
+  let budget = base_data.get_CustomCost();
+  for (let i = 0; i < buildups.get_Count(); ++i) {
+    let buildup = buildups[i]
+    budget -= buildup.get_Cost();
+    if (budget < 0) {
+      return false;
+    }
+
+    if (buildup.get_IsSkillSubBonus()) {
+      let skill = buildup.get_PlSkillId();
+      if (skill in skill_levels) {
+        if (skill_levels[skill] == 0) {
+          return false;
+        }
+        skill_levels[skill] -= 1;
+      }
+    }
+  }
+  return true;
+}
+
 {
   let self: snow.gui.fsm.smithy.GuiCustomBuildup;
   let keepCursor: boolean;
@@ -99,13 +129,7 @@ function check_decide(self: GuiCustomBuildup): boolean {
       }
       current_inventory_data = self._PlayerEquipBoxCtrl._EquipBoxGridCursorCtrl.getSelectedEquipInventoryData();
 
-      buildup_count = 0
-      for (let i = 0; i < 7; ++i) {
-        if (buildup_data()[i].get_Id() == 0) {
-          break;
-        }
-        buildup_count += 1
-      }
+      buildup_count = current_inventory_data.getArmorData().get_CustomBuildupResultNum();
 
       let new_count = self._ListCustomCategory.get_ItemCount() + buildup_count;
       self._ListCustomCategory["init(System.UInt32, System.UInt32, System.Int32, System.Int32)"](
@@ -147,7 +171,7 @@ function check_decide(self: GuiCustomBuildup): boolean {
         let buildup = buildup_data()[i];
         let description = custom_buildup_description(buildup);
 
-        text.set_Message(`${description} Cost:${buildup.get_Cost()}`);
+        text.set_Message(`${description} [${buildup.get_Cost()}]`);
         let panel = items[i + 1]["getObject(System.String, System.Type)"](
           "pnl_MenuList/pnl_Status",
           via.gui.Panel.T().get_runtime_type()
@@ -182,7 +206,7 @@ sdk.hook(GuiCustomBuildup.updateDetailWindowBySelectTopMenu, (args) => {
   self._TextDetailWindowMenu.set_Message(`Lock qurious slot`);
   self._TextDetailWindowExplain.set_Message(
 `Currently in slot: ${custom_buildup_description(buildupSlot)}
-Available Cost: ${remaining_cost()}`
+Available Budget: ${remaining_cost()}`
     );
   return sdk.PreHookResult.SKIP_ORIGINAL;
 });
@@ -224,11 +248,14 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
   (retval) => {
     if (locked_slots) {
       let param = sdk.to_managed_object(retval).MemberwiseClone() as snow.data.CustomBuildupArmorMaterialUserData.Param;
+      let addCost = 0;
       for (let b of locked_slots) {
         if (b) {
-          param._MaterialCategoryNum *= 2;
+          if (addCost == 0) addCost = 10;
+          addCost *= 2;
         }
       }
+      param._MaterialCategoryNum += addCost;
       return sdk.to_ptr(param);
     }
     return retval;
@@ -253,26 +280,12 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
       // let skillList = sdk.to_managed_object(args[4]);
       
 
-      let final_buildups: {
-        [t: number]: snow.data.CustomBuildupResultData;
-      } = {};
-
       let new_cost = cost;
       let minimum_slot_count = 0;
-      for (let i = 0; i < skillList.mSize; ++i) {
-        log.info(`Armor skill ${i}: ${skillList.get_Item(i).get_Name()} ${skillList.get_Item(i).getLv(9)}`);
-      }
 
-      let forbidden_minus_skills: {[skillId: number]: true} = {}
       for (let i = 0; i < buildup_count; ++i) {
         if (locked_slots[i]) {
-          log.info(`Locked slot ${i}`);
           let buildup = buildup_data()[i];
-
-          // If a minus skill is locked, forbid it
-          if (buildup.get_IsSkillSubBonus()) {
-            forbidden_minus_skills[buildup.get_PlSkillId()] = true;
-          }
 
           if (buildup.get_IsSlotBonus()) {
             slotBlank -= buildup.get_Value();
@@ -280,58 +293,38 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
 
           // Substract cost of the buildup
           new_cost -= buildup.get_Cost();
-          final_buildups[i] = buildup;
 
-          // We need at least all the locked slots to be occupied in the result array
-          minimum_slot_count = i + 1;
+          // We reroll results until we have enough slots to fit locked slots in their place
+          minimum_slot_count = i + 1
         }
       }
 
-      // We reroll results until we have enough slots to fill everything
       recurse_guard = true;
 
       let result: ReturnType<typeof self.createResult>;
       do {
         result = self.createResult(new_cost, slotBlank, skillList, false);
-        if (result.get_Count() == 0) return;
 
-        let ok = true;
-        // Reroll if we have duplicate minus skills
-        for (let i = 0; i < result.get_Length(); ++i) {
-          if (result[i].get_IsSkillSubBonus() && forbidden_minus_skills[result[i].get_PlSkillId()]) { 
-            ok = false;
+        if (result.get_Count() == 0) return;
+        // Reroll if we don't have enough slots
+        if (result.get_Count() < minimum_slot_count) continue;
+
+        for (let i = 0; i < buildup_count; ++i) {
+          if (locked_slots[i]) {
+            result[i] = buildup_data()[i]
           }
         }
-
-        // Reroll if we don't have enough slots
-        if (result.get_Count() < minimum_slot_count) ok = false;
-
-        if (ok) break;
+        if (!check_valid(current_inventory_data.getArmorData(), result)) continue;
+        break;
       } while (true);
 
       recurse_guard = false;
 
-
-      let result_count = result.get_Count();
-
-      for (let i of $range(0, result_count - 1)) {
-        for (let j of $range(0, result_count - 1)) {
-          if (!(j in final_buildups)) {
-            final_buildups[j] = result[i];
-            break;
-          }
-        }
-      }
-
       log.info("found result");
       log.info(`${result.get_Count()}`);
-      for (let i of $range(0, result_count - 1)) {
-        if (i in final_buildups) {
-          result[i] = final_buildups[i];
-        }
-        log.info(`${result[i].get_Id()}, skill: ${result[i].get_PlSkillId()}, ${result[i].ToString()}`);
+      for (let i = 0; i < result.get_Count(); ++i) {
+        log.info(`${custom_buildup_description(result[i])} (${result[i].get_Cost()})`);
       }
-
       ret = sdk.to_ptr(result);
       return sdk.PreHookResult.SKIP_ORIGINAL;
     },
