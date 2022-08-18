@@ -4,6 +4,7 @@
         "snow.gui.StmGui",
         "snow.gui.Snow",
         "snow.gui.fsm.smithy",
+        "snow.gui.fsm.itembox",
         "snow.envCreature"
     ],
     "type_map_filter": [
