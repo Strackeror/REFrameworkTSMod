@@ -5,7 +5,7 @@ type SystemString = import("./IL2CPP").System.String
 type SystemType = import("./IL2CPP").System.Type;
 
 type Func = (...args: any[]) => any;
-type StaticFunc = (this: void, ...args: any[]) => any;
+type Static_Func = (this: void, ...args: any[]) => any;
 
 declare type TypeName = keyof TypeMap;
 declare type REType<T extends TypeName> = TypeMap[T];
@@ -129,9 +129,11 @@ declare class SystemArray<T = unknown> extends REFType {
 
 declare class Ptr<T = any> { private __content: T; }
 
-type PtrTuple<T> = {
+type PtrTuple_<T> = {
   [K in keyof T]: Ptr<T[K]>;
 };
+type PtrTuple<T> = PtrTuple_<T> extends any[] ? PtrTuple_<T> : [];
+
 
 type HookFuncBefore<F extends Func> = (
   this: void,
@@ -182,12 +184,19 @@ declare namespace sdk {
   function create_uint64(num: number): REManagedObject
   function create_single(num: number): REManagedObject
   function create_double(num: number): REManagedObject
-
-  function hook<F extends StaticFunc>(
+  
+  function hook<F extends REMethodDefinition<any, Static_Func>>(
     func: F,
     before: HookFuncBefore<F> | undefined,
     after?: HookFuncAfter<F>
   ): void;
+  
+  function hook<F extends Func>(
+    func: F,
+    before: HookFuncBefore<F> | undefined,
+    after?: HookFuncAfter<F>
+  ): void;
+
 
   enum PreHookResult {
     CALL_ORIGINAL,

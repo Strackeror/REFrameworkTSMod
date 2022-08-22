@@ -1,5 +1,13 @@
 {
     "Lua.diagnostics.globals": [
         "sdk"
-    ]
+    ],
+    "editor.formatOnSaveMode": "file",
+    "typescript.preferences.importModuleSpecifier": "non-relative",
+    "prettier.printWidth": 120,
+    "[typescript]": {
+        "editor.rulers": [
+            120
+        ]
+    },
 }
