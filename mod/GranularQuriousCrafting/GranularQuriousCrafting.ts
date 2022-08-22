@@ -35,19 +35,18 @@ let locked_slots: boolean[];
 let current_inventory_data: snow.data.EquipmentInventoryData;
 let buildup_count = 0;
 
-
 function buildup_data() {
   return current_inventory_data.getArmorData().get_CustomBuildupResult();
 }
 
 function remaining_cost(): number {
-  let cost = current_inventory_data.getArmorBaseData().get_CustomCost()
+  let cost = current_inventory_data.getArmorBaseData().get_CustomCost();
   for (let i = 0; i < buildup_count; ++i) {
     if (locked_slots[i]) {
       cost -= buildup_data()[i].get_Cost();
     }
   }
-  return cost
+  return cost;
 }
 
 function equip_is_craftable_armor(self: GuiCustomBuildup): boolean {
@@ -91,11 +90,8 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
 
   let budget = base_data.get_CustomCost();
   for (let i = 0; i < buildups.get_Count(); ++i) {
-    let buildup = buildups[i]
+    let buildup = buildups[i];
     budget -= buildup.get_Cost();
-    if (budget < 0) {
-      return false;
-    }
 
     if (buildup.get_IsSkillSubBonus()) {
       let skill = buildup.get_PlSkillId();
@@ -107,6 +103,7 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
       }
     }
   }
+  if (budget < 0) return false;
   return true;
 }
 
@@ -186,9 +183,8 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
           }
         }
         snow.gui.SnowGuiCommonUtility.reqSe(0xf4b6879b);
-
       }
-     }
+    }
   );
 }
 
@@ -202,12 +198,12 @@ sdk.hook(GuiCustomBuildup.updateDetailWindowBySelectTopMenu, (args) => {
     return;
   }
 
-  let buildupSlot = buildup_data()[buildup_index]
+  let buildupSlot = buildup_data()[buildup_index];
   self._TextDetailWindowMenu.set_Message(`Lock qurious slot`);
   self._TextDetailWindowExplain.set_Message(
-`Currently in slot: ${custom_buildup_description(buildupSlot)}
+    `Currently in slot: ${custom_buildup_description(buildupSlot)}
 Available Budget: ${remaining_cost()}`
-    );
+  );
   return sdk.PreHookResult.SKIP_ORIGINAL;
 });
 
@@ -227,40 +223,35 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
     // Sending a negative cost to the rolling function gives invalid results
     let cost = buildup_data()[buildup_index].get_Cost();
     if (locked_slots[buildup_index]) {
-      cost *= -1
+      cost *= -1;
     }
     if (cost < remaining_cost()) {
       locked_slots[buildup_index] = !locked_slots[buildup_index];
     }
 
-    self.updateMaterialListWindow()
+    self.updateMaterialListWindow();
     self.updateDetailWindowBySelectTopMenu();
     self.updateTopMenu();
     return sdk.PreHookResult.SKIP_ORIGINAL;
   }
 });
 
-{
-  let args;
-  sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, (a) => {
-    args = a;
-  },
-  (retval) => {
-    if (locked_slots) {
-      let param = sdk.to_managed_object(retval).MemberwiseClone() as snow.data.CustomBuildupArmorMaterialUserData.Param;
-      let addCost = 0;
-      for (let b of locked_slots) {
-        if (b) {
-          if (addCost == 0) addCost = 10;
-          addCost *= 2;
-        }
+sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval) => {
+  if (locked_slots) {
+    let param = sdk.to_managed_object(retval);
+    param = param.MemberwiseClone() as typeof param;
+    let addCost = 0;
+    for (let b of locked_slots) {
+      if (b) {
+        if (addCost == 0) addCost = 10;
+        addCost *= 2;
       }
-      param._MaterialCategoryNum += addCost;
-      return sdk.to_ptr(param);
     }
-    return retval;
-  });
-}
+    param._MaterialCategoryNum += addCost;
+    return sdk.to_ptr(param);
+  }
+  return retval;
+});
 
 {
   let recurse_guard = false;
@@ -278,7 +269,6 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
       let slotBlank = sdk.to_int64(args[3]) & 0xffff_ffff;
       let skillList = current_inventory_data.getArmorBaseData().get_AllSkillDataList();
       // let skillList = sdk.to_managed_object(args[4]);
-      
 
       let new_cost = cost;
       let minimum_slot_count = 0;
@@ -295,7 +285,7 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
           new_cost -= buildup.get_Cost();
 
           // We reroll results until we have enough slots to fit locked slots in their place
-          minimum_slot_count = i + 1
+          minimum_slot_count = i + 1;
         }
       }
 
@@ -311,7 +301,7 @@ sdk.hook(GuiCustomBuildup.routineSelectTopMenu, (args) => {
 
         for (let i = 0; i < buildup_count; ++i) {
           if (locked_slots[i]) {
-            result[i] = buildup_data()[i]
+            result[i] = buildup_data()[i];
           }
         }
         if (!check_valid(current_inventory_data.getArmorData(), result)) continue;
