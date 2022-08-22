@@ -5,6 +5,7 @@
         "snow.gui.Snow",
         "snow.gui.fsm.smithy",
         "snow.gui.fsm.itembox",
+        "snow.gui.GuiMonsterList",
         "snow.envCreature"
     ],
     "type_map_filter": [

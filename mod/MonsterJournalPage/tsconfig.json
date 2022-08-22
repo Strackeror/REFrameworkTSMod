@@ -13,7 +13,8 @@
                 "../../IL2CPP/*"
             ]
         },
-        "outDir": "./dist"
+        "outDir": "./dist",
+        "target": "ES2020"
     },
     "tstl": {
         "luaLibImport": "inline",
