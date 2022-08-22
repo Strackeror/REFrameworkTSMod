@@ -1,5 +1,5 @@
 import { snow, System, via, void__via_GameObject____via_wwise_RequestInfo____via_string__u32_ } from "IL2CPP/IL2CPP";
-import { cast, getObject, il_iter } from "utilities";
+import { cast, getObject, il_iter } from "Utils/utilities";
 
 function check_select_tab_pressed(): boolean {
   return snow.gui.StmGuiInput.andTrg(

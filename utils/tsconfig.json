@@ -8,31 +8,19 @@
             "lua-types/5.4"
         ],
         "baseUrl": ".",
-        "paths": {
-            "IL2CPP/*": [
-                "../../IL2CPP/*"
-            ],
-            "Utils/*": [
-                "../../utils/dist/*"
-            ]
-        },
         "outDir": "./dist",
-        "skipLibCheck": true,
-        "target": "ES2020"
+        "noImplicitAny": true,
+        "target": "ES2020",
+        "declaration": true
     },
     "tstl": {
         "luaLibImport": "inline",
         "luaTarget": "5.3",
         "measurePerformance": true,
-        "noImplicitGlobalVariables": true,
-        "luaPlugins": [
-            {
-                "name": "../../mod-exporter-plugin/mod-export-path.ts"
-            }
-        ]
+        "noImplicitGlobalVariables": true
     },
     "include": [
         "./*",
-        "../../IL2CPP/*"
+        "../IL2CPP/*"
     ]
 }
