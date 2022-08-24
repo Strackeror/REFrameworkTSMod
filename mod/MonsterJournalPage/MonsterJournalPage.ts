@@ -166,8 +166,8 @@ sdk.hook(snow.gui.GuiMonsterList.updateEmMonsterInput, (args) => {
     "txt_shot_number",
     "txt_fire_number",
     "txt_water_number",
-    "txt_thunder_number",
     "txt_ice_number",
+    "txt_thunder_number",
     "txt_dragon_number",
   ];
 
