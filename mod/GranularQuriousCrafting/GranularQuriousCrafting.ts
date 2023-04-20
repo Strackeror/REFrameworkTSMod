@@ -34,6 +34,7 @@ function custom_buildup_description(buildup: snow.data.CustomBuildupResultData):
 let locked_slots: boolean[];
 let current_inventory_data: snow.data.EquipmentInventoryData;
 let buildup_count = 0;
+let menu_start_index = 0;
 
 function buildup_data() {
   return current_inventory_data.getArmorData().get_CustomBuildupResult();
@@ -58,7 +59,7 @@ function equip_is_craftable_armor(self: GuiCustomBuildup): boolean {
 
 function current_buildup_index(self: GuiCustomBuildup): number | undefined {
   let index = self._CursorCustomTopMenu.getIndex();
-  let begin = 1;
+  let begin = menu_start_index;
   let end = begin + buildup_count;
   if (index >= begin && index < end) {
     return index - begin;
@@ -128,17 +129,22 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
 
       buildup_count = current_inventory_data.getArmorData().get_CustomBuildupResultNum();
 
-      let new_count = self._ListCustomCategory.get_ItemCount() + buildup_count;
+      menu_start_index = self._ListCustomCategory.get_ItemCount();
+      let new_count = menu_start_index + buildup_count;
+
+      let cursor_index = 0;
+      if (keepCursor) {
+        cursor_index = self._ListCustomCategory.get_CursorIndex()
+      }
       self._ListCustomCategory["init(System.UInt32, System.UInt32, System.Int32, System.Int32)"](
         new_count,
         new_count,
-        0,
-        0
+        cursor_index,
+        cursor_index,
       );
       self._ListCustomCategory.set_ItemCount(new_count);
       self._ListCustomCategory.set_ItemMax(new_count);
       self._CursorCustomTopMenu.updateMenuCursorParam(new_count, new_count);
-      self._CategoryMenuRemoveIndex += buildup_count;
     }
   );
 }
@@ -155,10 +161,11 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
       if (!equip_is_craftable_armor(self)) {
         return retval;
       }
-
+      
       let items = self._ListCustomCategory.get_Items();
       for (let i = 0; i < buildup_count; ++i) {
-        let text = items[i + 1]["getObject(System.String, System.Type)"](
+        let ui_elem_index = i + menu_start_index;
+        let text = items[ui_elem_index]["getObject(System.String, System.Type)"](
           "pnl_MenuList/txt_menu",
           via.gui.Text.T().get_runtime_type()
         ) as via.gui.Text;
@@ -169,7 +176,7 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
         let description = custom_buildup_description(buildup);
 
         text.set_Message(`${description} [${buildup.get_Cost()}]`);
-        let panel = items[i + 1]["getObject(System.String, System.Type)"](
+        let panel = items[ui_elem_index]["getObject(System.String, System.Type)"](
           "pnl_MenuList/pnl_Status",
           via.gui.Panel.T().get_runtime_type()
         ) as via.gui.Panel;
@@ -182,7 +189,6 @@ function check_valid(armor: snow.data.ArmorData, buildups: System.Array.Generic<
             panel.set_Visible(false);
           }
         }
-        snow.gui.SnowGuiCommonUtility.reqSe(0xf4b6879b);
       }
     }
   );
@@ -248,6 +254,9 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
       }
     }
     param._MaterialCategoryNum += addCost;
+    param._MaterialCategoryNum_Def += addCost;
+    param._MaterialCategoryNum_Skill += addCost;
+    param._MaterialCategoryNum_Slot += addCost;
     return sdk.to_ptr(param);
   }
   return retval;
@@ -256,6 +265,8 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
 {
   let recurse_guard = false;
 
+  
+   // createResult(totalCost: number, slotBlank: number, baseSkillList: System.Collections.Generic.List.T1<snow.data.PlSkillData>, isSort: boolean, buildupType: number, randomSeed: snow.data.FacilityDataManager.RandomSeedManual, ): System.Array.Generic<snow.data.CustomBuildupResultData>; // 142b59920
   let ret: any;
   sdk.hook(
     snow.data.ArmorCustomBuildupData.createResult,
@@ -265,10 +276,10 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
       }
       let self = sdk.to_managed_object(args[1]);
       let cost = sdk.to_int64(args[2]) & 0xffff_ffff;
-
       let slotBlank = sdk.to_int64(args[3]) & 0xffff_ffff;
-      let skillList = current_inventory_data.getArmorBaseData().get_AllSkillDataList();
-      // let skillList = sdk.to_managed_object(args[4]);
+      let skillList = sdk.to_managed_object(args[4]);
+      let buildupType = sdk.to_int64(args[6]) & 0xff;
+      let seed = sdk.to_int64(args[7])
 
       let new_cost = cost;
       let minimum_slot_count = 0;
@@ -293,7 +304,7 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
 
       let result: ReturnType<typeof self.createResult>;
       do {
-        result = self.createResult(new_cost, slotBlank, skillList, false);
+        result = self.createResult(new_cost, slotBlank, skillList, false, buildupType, seed);
 
         if (result.get_Count() == 0) return;
         // Reroll if we don't have enough slots
