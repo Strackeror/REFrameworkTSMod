@@ -266,7 +266,6 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
   let recurse_guard = false;
 
   
-   // createResult(totalCost: number, slotBlank: number, baseSkillList: System.Collections.Generic.List.T1<snow.data.PlSkillData>, isSort: boolean, buildupType: number, randomSeed: snow.data.FacilityDataManager.RandomSeedManual, ): System.Array.Generic<snow.data.CustomBuildupResultData>; // 142b59920
   let ret: any;
   sdk.hook(
     snow.data.ArmorCustomBuildupData.createResult,
@@ -274,6 +273,8 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
       if (recurse_guard) {
         return;
       }
+      recurse_guard = true;
+
       let self = sdk.to_managed_object(args[1]);
       let cost = sdk.to_int64(args[2]) & 0xffff_ffff;
       let slotBlank = sdk.to_int64(args[3]) & 0xffff_ffff;
@@ -282,8 +283,9 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
       let seed = sdk.to_int64(args[7])
 
       let new_cost = cost;
-      let minimum_slot_count = 0;
+      let locked_buildups = [];
 
+      // Reduce the slotblank and cost by the locked buildups
       for (let i = 0; i < buildup_count; ++i) {
         if (locked_slots[i]) {
           let buildup = buildup_data()[i];
@@ -291,36 +293,44 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
           if (buildup.get_IsSlotBonus()) {
             slotBlank -= buildup.get_Value();
           }
-
-          // Substract cost of the buildup
           new_cost -= buildup.get_Cost();
 
-          // We reroll results until we have enough slots to fit locked slots in their place
-          minimum_slot_count = i + 1;
+          locked_buildups.push(buildup);
         }
       }
 
-      recurse_guard = true;
-
+      let max_slot_count = 7 - locked_buildups.length;
       let result: ReturnType<typeof self.createResult>;
       do {
+        // Reroll until we can add the locked slots to the result
         result = self.createResult(new_cost, slotBlank, skillList, false, buildupType, seed);
-
         if (result.get_Count() == 0) return;
-        // Reroll if we don't have enough slots
-        if (result.get_Count() < minimum_slot_count) continue;
+        if (result.get_Count() > max_slot_count) continue;
 
-        for (let i = 0; i < buildup_count; ++i) {
-          if (locked_slots[i]) {
-            result[i] = buildup_data()[i];
-          }
+        // Create a new array of results, fill it with the locked buildups, then the new ones
+        let new_result = sdk.create_managed_array(
+          result.Get(0).get_type_definition().get_full_name(),
+          result.get_Count() + locked_buildups.length
+        );
+        for (let i = 0; i < locked_buildups.length; ++i) {
+          new_result[i] = locked_buildups[i];
         }
+        for (let i = 0; i < result.get_Count(); ++i) {
+          new_result[i + locked_buildups.length] = result.Get(i);
+        }
+        result = new_result;
+        // Reroll again if the final result is invalid
         if (!check_valid(current_inventory_data.getArmorData(), result)) continue;
         break;
       } while (true);
 
-      recurse_guard = false;
+      // Move the locked slot flags to the beginning, as the buildups have been moved
+      locked_slots = [false, false, false, false, false, false, false]
+      for (let i = 0; i < locked_buildups.length; ++i) {
+        locked_slots[i] = true;
+      }
 
+      recurse_guard = false;
       log.info("found result");
       log.info(`${result.get_Count()}`);
       for (let i = 0; i < result.get_Count(); ++i) {
