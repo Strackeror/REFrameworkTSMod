@@ -262,6 +262,23 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
   return retval;
 });
 
+// If buildups are locked in, the locked slots are now at the start, so move them there
+sdk.hook(snow.data.EquipmentInventoryData.copy, (args) => {
+  let self =  sdk.to_managed_object(args[1])
+  log.info(`equipment copy self:${self} current:${current_inventory_data}`);
+  if (self == current_inventory_data) {
+    log.info(`move locked slots to beginning`)
+    let new_locked_slots = []
+    for (let b of locked_slots) {
+      if (b) new_locked_slots.push(true);
+    }
+    while (new_locked_slots.length < 7) {
+      new_locked_slots.push(false)
+    }
+    locked_slots = new_locked_slots
+  }
+});
+
 {
   let recurse_guard = false;
 
@@ -323,12 +340,6 @@ sdk.hook(snow.data.CustomBuildupModule.getArmorMaterialData, undefined, (retval)
         if (!check_valid(current_inventory_data.getArmorData(), result)) continue;
         break;
       } while (true);
-
-      // Move the locked slot flags to the beginning, as the buildups have been moved
-      locked_slots = [false, false, false, false, false, false, false]
-      for (let i = 0; i < locked_buildups.length; ++i) {
-        locked_slots[i] = true;
-      }
 
       recurse_guard = false;
       log.info("found result");
