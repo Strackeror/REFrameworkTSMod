@@ -6,7 +6,8 @@
         "snow.gui.fsm.smithy",
         "snow.gui.fsm.itembox",
         "snow.gui.GuiMonsterList",
-        "snow.envCreature"
+        "snow.envCreature",
+        "snow.enemy.EnemyUtility"
     ],
     "type_map_filter": [
         "snow.SnowSingleton",
